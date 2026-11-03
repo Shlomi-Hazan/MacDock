@@ -90,6 +90,12 @@ After changing one fingerprint character, the iPhone displayed `State: Cancelled
 
 This is evidence that the incorrect fingerprint attempt was rejected during TLS establishment. The generic iOS cancellation display was a reporting limitation in the previous implementation. The current implementation is designed to preserve the TLS or peer-verification failure state instead of overwriting it with cancellation; this UI correction requires a post-fix physical retest.
 
+### Final regression run after the UI correction
+
+The maintainer subsequently retested the incorrect fingerprint with the updated experiment. The iPhone displayed `State: Failed: connection or message timeout`, `TLS service results: 1`, `Path: Path unknown`, and `Message: No verified exchange`. During the same attempt, the macOS advertiser reported `Network.NWError error -9825 - misc. bad certificate` while the connection was still in TLS establishment.
+
+This confirms rejection and absence of a verified exchange after the code correction. The remaining timeout classification is a diagnostic limitation: the iOS API did not expose a more specific trust-failure classification to this UI path. It is documented rather than treated as proof of a universal error mapping.
+
 ### Keychain observation
 
 During initial attempts, macOS displayed a Keychain authorization prompt stating that `TransportTLSAdvertiser` wanted to sign using key `Imported Private Key`. The exchange timed out before authorization. After authorization, the correct-fingerprint test succeeded. This is an observed dependency of this test environment, not a confirmed universal macOS behavior. No Keychain credentials or signing material are stored in the repository.
