@@ -28,3 +28,5 @@ Use imperative English commit messages with a focused scope, for example:
 ## Validation
 
 Do not report a validation as successful unless the command completed successfully and its result was reviewed.
+
+For the detailed task, documentation, Project, and Issue synchronization procedure, see [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md).

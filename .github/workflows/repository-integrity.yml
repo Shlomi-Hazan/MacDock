@@ -15,6 +15,31 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine and validate change range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base_sha="$PR_BASE_SHA"
+            head_sha="$PR_HEAD_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+            head_sha="$CURRENT_SHA"
+          fi
+          if [[ -z "$base_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
+            base_sha="$(git rev-list --max-parents=0 "$head_sha")"
+          fi
+          git diff --check "$base_sha" "$head_sha"
+          git diff --name-status "$base_sha" "$head_sha"
 
       - name: Check required foundation files
         shell: bash
@@ -32,11 +57,35 @@ jobs:
             .gitignore
             .editorconfig
             docs/decisions/0001-public-repository-and-staged-bootstrap.md
+            docs/DEVELOPMENT_WORKFLOW.md
             .github/pull_request_template.md
           )
           for file in "${required_files[@]}"; do
             test -s "$file"
           done
 
-      - name: Check whitespace errors
-        run: git diff --check
+      - name: Check changed file names for sensitive material
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base_sha="$PR_BASE_SHA"
+            head_sha="$PR_HEAD_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+            head_sha="$CURRENT_SHA"
+          fi
+          if [[ -z "$base_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
+            base_sha="$(git rev-list --max-parents=0 "$head_sha")"
+          fi
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+          if grep -E '(^|/)(\.env($|\.)|.*\.(p12|mobileprovision|provisionprofile|key|pem|cer)$)' <<< "$changed_files"; then
+            echo "Potential credential or signing material detected in changed file names." >&2
+            exit 1
+          fi
