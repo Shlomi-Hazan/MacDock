@@ -1,7 +1,7 @@
 # Bonjour Discovery Experiment Report
 
 - Issue: [#3](https://github.com/Shlomi-Hazan/MacDock/issues/3)
-- Status: Prepared and partially executed; physical iPhone validation remains pending
+- Status: Xcode target prepared; physical iPhone validation remains pending
 - Date: 2026-11-03
 
 ## Research question
@@ -31,7 +31,8 @@ Can a minimal macOS service advertise a dedicated Bonjour service and can a nati
 
 - **Verified by compilation:** the macOS Swift Package targets compiled successfully.
 - **Verified on macOS runtime:** the advertiser/browser processes were run locally and their lifecycle/result observations were captured below.
-- **Prepared but not run:** the iOS source and Info.plist declarations are present, but no iOS app target was built or installed here.
+- **Verified by simulator compilation:** the isolated iOS Xcode target built for iOS Simulator without signing.
+- **Prepared but not run on hardware:** the iOS target was not installed or executed on the physical iPhone here because local Development Team selection is still required.
 - **Documentation only:** platform permission and limitation statements linked to Apple documentation.
 - **Not tested:** physical iPhone discovery, permission denial on iOS, Wi-Fi interruption, sleep/wake, and multi-device behavior.
 
@@ -43,6 +44,8 @@ The experiment contains two isolated macOS command-line targets:
 - `BonjourBrowser`: creates an `NWBrowser` for `_macdock._tcp`, reports lifecycle state, and reports only the number of visible services.
 
 It also contains an iOS SwiftUI source file using `NWBrowser`, plus an example `Info.plist` with `NSLocalNetworkUsageDescription` and `NSBonjourServices`.
+
+The iOS source is now included in the isolated `iOS/BonjourBrowser.xcodeproj` target. The project deliberately contains no team identifier, provisioning profile, certificate, device identifier, or Apple account information.
 
 ## Reproduction
 
@@ -78,6 +81,8 @@ Type `q` and press Return to stop either command cleanly. Stop and restart the a
 | iOS app relaunch | Not run | Not tested | Requires physical iPhone or simulator target. |
 | Multiple services/duplicate events | Not run | Not tested | Requires multiple advertisers or controlled duplicate service publication. |
 
+The Xcode project was validated with `xcodebuild -list` and built successfully for iOS Simulator with signing disabled. A normal device build was attempted and was blocked by Xcode's requirement for a locally selected Development Team; no signing configuration was committed.
+
 ## Execution log
 
 The following observations were captured on the Apple Silicon macOS host on 2026-11-03:
@@ -94,6 +99,7 @@ No service endpoint, MAC address, IP address, or device identifier was included 
 
 - This experiment demonstrates the API shape and local macOS behavior only; it does not satisfy the physical iPhone discovery acceptance criterion by itself.
 - The command-line macOS targets do not have an iOS app lifecycle, iOS Local Network prompt, or iOS signing profile.
+- The iOS project is runnable after the user selects a local development team in Xcode; this is a signing prerequisite, not physical discovery evidence.
 - The experiment reports service counts rather than service endpoint details to minimize identifier exposure. A later experiment may need stable, non-sensitive service metadata for user selection.
 - Discovery does not imply a connection, authentication, authorization, or readiness to receive MacDock commands.
 - The exact Local Network prompt and denial behavior must be observed from a signed app target on the relevant OS versions.

@@ -30,14 +30,26 @@ The command-line targets are macOS-only and are intentionally separate from futu
 
 ## iOS setup
 
-1. In Xcode, create a temporary iOS App project for this experiment; do not add it to a production MacDock target.
-2. Add `iOS/BonjourBrowserApp.swift` to the app target.
-3. Add the keys from `iOS/Info.plist.example` to the target's `Info.plist`.
-4. Set the iOS deployment target according to the experiment device and installed SDK; no project-wide minimum is selected by this repository yet.
-5. Build and run on the target iPhone while the macOS advertiser is running on the same local network.
-6. Grant or deny Local Network access deliberately and record the resulting browser state.
+The isolated Xcode project is at `iOS/BonjourBrowser.xcodeproj`. Open it directly in Xcode; do not add it to a production MacDock target.
 
-The iOS source is prepared in this repository, but this checkout does not yet contain an Xcode project or signing configuration. A physical-device result must be recorded separately from compilation or simulator behavior.
+1. Open `iOS/BonjourBrowser.xcodeproj`.
+2. Select the `BonjourBrowser` target and choose your Apple development team under Signing & Capabilities. This setting is local to the Xcode project/user environment and must not be committed.
+3. Select the connected iPhone as the run destination.
+4. Build and run while the macOS advertiser is running on the same local network.
+5. Grant or deny Local Network access deliberately and record the resulting browser state.
+
+The committed target contains no Team ID, provisioning profile, certificate, device identifier, or Apple account information. `Info.plist.example` supplies `NSLocalNetworkUsageDescription` and `_macdock._tcp` under `NSBonjourServices`.
+
+For a no-signing validation, run:
+
+```sh
+xcodebuild -project iOS/BonjourBrowser.xcodeproj \
+  -scheme BonjourBrowser \
+  -sdk iphonesimulator \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Compilation or simulator execution is not evidence of physical-device discovery. A physical-device result must be recorded separately.
 
 ## Boundaries
 
