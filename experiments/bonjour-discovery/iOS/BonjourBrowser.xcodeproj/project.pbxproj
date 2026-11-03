@@ -1,0 +1,229 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* BonjourBrowserApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000100000000000000001 /* BonjourBrowserApp.swift */; };
+		A10000010000000000000002 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000100000000000000003 /* Network.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000100000000000000001 /* BonjourBrowserApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourBrowserApp.swift; sourceTree = "<group>"; };
+		A10000100000000000000002 /* Info.plist.example */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist.example; sourceTree = "<group>"; };
+		A10000100000000000000003 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		A10000100000000000000004 /* BonjourBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BonjourBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000200000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000002 /* Network.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000300000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A10000300000000000000002 /* Sources */,
+				A10000300000000000000003 /* Resources */,
+				A10000300000000000000004 /* Frameworks */,
+				A10000300000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000300000000000000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000100000000000000001 /* BonjourBrowserApp.swift */,
+			);
+			path = .;
+			sourceTree = "<group>";
+		};
+		A10000300000000000000003 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000100000000000000002 /* Info.plist.example */,
+			);
+			path = .;
+			sourceTree = "<group>";
+		};
+		A10000300000000000000004 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A10000100000000000000003 /* Network.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A10000300000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000100000000000000004 /* BonjourBrowser.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000400000000000000001 /* BonjourBrowser */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000700000000000000002 /* Build configuration list for PBXNativeTarget "BonjourBrowser" */;
+			buildPhases = (
+				A10000200000000000000002 /* Sources */,
+				A10000200000000000000001 /* Frameworks */,
+				A10000200000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BonjourBrowser;
+			productName = BonjourBrowser;
+			productReference = A10000100000000000000004 /* BonjourBrowser.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000500000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					A10000400000000000000001 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = A10000700000000000000001 /* Build configuration list for PBXProject "BonjourBrowser" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000300000000000000001;
+			productRefGroup = A10000300000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000400000000000000001 /* BonjourBrowser */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000200000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000200000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000001 /* BonjourBrowserApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000600000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Info.plist.example;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.macdock.experiment.bonjourbrowser;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A10000600000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Info.plist.example;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.macdock.experiment.bonjourbrowser;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A10000600000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10000600000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000700000000000000001 /* Build configuration list for PBXProject "BonjourBrowser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000600000000000000003 /* Debug */,
+				A10000600000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000700000000000000002 /* Build configuration list for PBXNativeTarget "BonjourBrowser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000600000000000000001 /* Debug */,
+				A10000600000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000500000000000000001 /* Project object */;
+}
