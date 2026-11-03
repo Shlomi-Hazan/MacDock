@@ -40,6 +40,8 @@ The isolated Xcode project is at `iOS/BonjourBrowser.xcodeproj`. Open it directl
 
 The committed target contains no Team ID, provisioning profile, certificate, device identifier, or Apple account information. `Info.plist.example` supplies `NSLocalNetworkUsageDescription` and `_macdock._tcp` under `NSBonjourServices`.
 
+The plist also declares `CFBundleIdentifier` as `$(PRODUCT_BUNDLE_IDENTIFIER)`. This is required because the target uses a checked-in plist with `GENERATE_INFOPLIST_FILE = NO`; without the explicit key, the built app is not a valid installable bundle.
+
 For a no-signing validation, run:
 
 ```sh

@@ -36,6 +36,14 @@ Can a minimal macOS service advertise a dedicated Bonjour service and can a nati
 - **Documentation only:** platform permission and limitation statements linked to Apple documentation.
 - **Not tested:** physical iPhone discovery, permission denial on iOS, Wi-Fi interruption, sleep/wake, and multi-device behavior.
 
+## Bundle installation diagnosis
+
+The first physical installation attempt failed because the generated `BonjourBrowser.app/Info.plist` did not contain `CFBundleIdentifier`. The target had `PRODUCT_BUNDLE_IDENTIFIER = com.macdock.experiment.bonjourbrowser`, but it also used `GENERATE_INFOPLIST_FILE = NO` with a manually supplied plist that omitted the corresponding key. Xcode therefore produced a bundle with the network privacy declarations but without an installable application identifier.
+
+The minimal fix was to add `CFBundleIdentifier` with the value `$(PRODUCT_BUNDLE_IDENTIFIER)` to `Info.plist.example`. No signing identity, Team ID, provisioning profile, certificate, or device identifier was added.
+
+After the fix, Debug and Release generic iOS device builds passed with signing disabled. The built plist was inspected and contained the resolved bundle identifier, `NSLocalNetworkUsageDescription`, and `NSBonjourServices` containing `_macdock._tcp`.
+
 ## Implementation approach
 
 The experiment contains two isolated macOS command-line targets:
