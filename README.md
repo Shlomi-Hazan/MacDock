@@ -27,6 +27,7 @@ Touchpad, keyboard, media controls, clipboard synchronization, and other advance
 - [Security](SECURITY.md)
 - [AI and development-agent guidance](AGENTS.md)
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md)
+- [Research notes](docs/research/)
 - [Architecture decisions](docs/decisions/)
 
 ## License
