@@ -67,6 +67,11 @@ private final class CallbackBox<Value>: @unchecked Sendable {
     var value: Value?
 }
 
+private struct LaunchCallbackOutcome {
+    let application: NSRunningApplication?
+    let error: Error?
+}
+
 public struct ApplicationController {
     public let workspace: NSWorkspace
 
@@ -143,15 +148,25 @@ public struct ApplicationController {
 
     public func missing(bundleURL: URL) -> OperationReport {
         let semaphore = DispatchSemaphore(value: 0)
-        let errorDescription = CallbackBox<String>()
-        workspace.openApplication(at: bundleURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-            errorDescription.value = error?.localizedDescription ?? "macOS returned no application and no error."
+        let callback = CallbackBox<LaunchCallbackOutcome>()
+        workspace.openApplication(at: bundleURL, configuration: NSWorkspace.OpenConfiguration()) { application, error in
+            callback.value = LaunchCallbackOutcome(application: application, error: error)
             semaphore.signal()
         }
         guard semaphore.wait(timeout: .now() + 5) == .success else {
             return OperationReport(operation: .missing, requestOutcome: .timeout, processObservation: observe(bundleURL: bundleURL), foregroundOutcome: .foregroundUnverified, errorDescription: ExperimentError.launchTimedOut.localizedDescription)
         }
-        return OperationReport(operation: .missing, requestOutcome: .requestRejected, processObservation: observe(bundleURL: bundleURL), foregroundOutcome: .foregroundUnverified, errorDescription: errorDescription.value)
+        guard let callback = callback.value else {
+            return OperationReport(operation: .missing, requestOutcome: .unknown, processObservation: observe(bundleURL: bundleURL), foregroundOutcome: .foregroundUnverified, errorDescription: "No launch callback result was available.")
+        }
+        let observation = observe(bundleURL: bundleURL)
+        if callback.application != nil {
+            return OperationReport(operation: .missing, requestOutcome: .requestAccepted, processObservation: observation, foregroundOutcome: observation.isFrontmost ? .frontmostObserved : .foregroundUnverified, errorDescription: callback.error?.localizedDescription)
+        }
+        if let error = callback.error {
+            return OperationReport(operation: .missing, requestOutcome: .requestRejected, processObservation: observation, foregroundOutcome: .foregroundUnverified, errorDescription: error.localizedDescription)
+        }
+        return OperationReport(operation: .missing, requestOutcome: .unknown, processObservation: observation, foregroundOutcome: .foregroundUnverified, errorDescription: "macOS returned neither an application nor an error.")
     }
 
     private func waitForRunning(bundleURL: URL, timeout: TimeInterval) -> ProcessObservation {

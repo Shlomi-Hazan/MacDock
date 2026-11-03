@@ -33,11 +33,13 @@ The experiment uses:
 - Bounded polling: 10 seconds for process appearance after launch and 3 seconds for frontmost observation after activation.
 - A missing-application scenario with a fixed nonexistent path; no installed application is deleted or modified.
 
+The missing-application operation reports `requestAccepted`, `requestRejected`, `timeout`, or `unknown` from the actual callback and subsequent observation. It does not force a rejection label when AppKit returns an unexpected result.
+
 The executable refuses to launch an already-running target and refuses to activate a target without a matching running process. It does not retry indefinitely and does not automatically replay an operation after a timeout.
 
 ## Controlled runtime evidence
 
-Environment: Apple Silicon development Mac, Swift 6.2.4, Xcode 26.3. Commands were run locally by the tool environment. Calculator was selected as a low-risk system application.
+Environment: Apple Silicon development Mac, Swift 6.2.4, Xcode 26.3. Commands were run locally by the tool environment. Calculator and Chess were selected as low-risk system applications.
 
 ### A. Not-running launch
 
@@ -87,6 +89,12 @@ Foreground outcome: frontmostObserved
 
 This confirms the behavior for this target and environment only. It does not establish universal foreground behavior for every application class or policy state.
 
+### Additional harmless system application: Chess
+
+Chess was checked before the operation and was not running. The same launch-only command returned `requestAccepted`, while the bounded post-callback observation initially reported the process as not yet running and the foreground as unverified. A separate status invocation then reported `Process running: true`, `Process active: true`, and `Target frontmost observed: true`. Activation of the already-running Chess process returned `activationAccepted` and `Foreground outcome: frontmostObserved`.
+
+This second target reproduced the asynchronous launch pattern and confirms that the result is not specific to Calculator. The applications were left running; the experiment did not terminate them.
+
 ### C. Missing application
 
 The experiment used `/System/Applications/MacDock-Missing.app`, which did not exist. The result was:
@@ -132,9 +140,9 @@ This experiment does not implement pairing, authorization, or the production req
 
 - `swift test`: passed, 2 tests.
 - `swift build`: passed without compiler warnings after callback-state cleanup.
-- Controlled Calculator status/launch/activation runs: completed as documented above.
+- Controlled Calculator and Chess status/launch/activation runs: completed as documented above.
 - Missing application rejection: completed as documented above.
-- `git diff --check`: required before submission.
+- `git diff --check`: passed before submission.
 - Privacy and secrets review: no credentials, paths from output, signing identities, or device identifiers are committed.
 
 ## Conclusions and limitations
