@@ -23,6 +23,7 @@ Use a QR-first, user-confirmed bootstrap combined with authenticated transport a
 - Both devices exchange fresh, signed transcript material and derive a Short Authentication String.
 - The user compares the SAS on both devices and explicitly approves pairing on both sides.
 - Only after both approvals are complete do the devices store each other's long-term public key in their pairing records.
+- Neither device may enable trusted application-control operations while pairing is one-sided, pending, interrupted, or otherwise inconsistent; a staged trust record is not operational trust.
 - Future sessions use fresh TLS keys plus stored peer-key authentication; a changed key requires explicit unpair/re-pair.
 
 The QR code is an out-of-band bootstrap channel, not complete authentication. The short code is a human comparison value, not a standalone password.
@@ -46,6 +47,8 @@ Costs and limitations:
 
 - Pairing requires user interaction on both devices.
 - Relay and social-engineering attacks cannot be eliminated if the user approves a mismatched or unexpected session.
+- SAS comparison and QR confirmation do not cryptographically guarantee relay resistance: a relay may forward a valid exchange without changing the SAS. Their benefit depends on the user confirming the intended physical display and comparing both values; this residual risk must remain explicit in the UX and Stage 2 tests.
+- One-sided approval, interrupted final confirmation, duplicate final messages, and inconsistent local records must remain non-operational pending states and recover through expiry or explicit re-pairing.
 - The transcript encoding and exact TLS-to-identity binding still require a Stage 2 protocol specification and implementation review.
 - Key loss requires explicit re-pairing; no cloud recovery is assumed.
 

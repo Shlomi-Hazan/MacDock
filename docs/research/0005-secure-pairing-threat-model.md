@@ -112,6 +112,21 @@ It must not contain a private key, Keychain secret, password, provisioning profi
 8. Only after both approvals do the devices store the peer public key and mark the relationship `Paired`.
 9. The devices discard the QR token, ephemeral private keys, and unfinished session state.
 
+### Two-sided confirmation and partial pairing safety
+
+The safety invariant for Stage 2 is: neither device may enable trusted application-control operations unless both devices have completed the required pairing confirmation protocol and each device has a verified, durable peer binding. Network reachability, a verified TLS channel, one-sided approval, or a locally stored pending record is insufficient.
+
+The implementation should model an explicit staged or pending trust state that is not authorized for application control. In particular:
+
+- One-sided approval keeps the session pending; it must not create an operational trust record.
+- An interruption during final confirmation must leave both devices safe to retry, with ephemeral material and one-time session state expired or discarded according to the protocol.
+- If a crash or storage failure leaves a local pending record, it must be treated as incomplete and reconciled through a fresh pairing attempt rather than promoted automatically.
+- Duplicate final messages must be idempotent for the same valid session and must not cause a half-completed session to become trusted.
+- Retry after interruption must use a fresh bounded session and fresh transcript material; stale approvals, tokens, and nonces must be rejected.
+- If local pairing records disagree, the implementation must enter an explicit recovery or `Authentication failed` state and require user-visible unpair/re-pair or another reviewed recovery path.
+
+This is a safety invariant and a Stage 2 implementation requirement, not a claim that Stage 0 has designed a complete distributed transaction protocol.
+
 ### Short-code fallback
 
 If QR scanning is unavailable, the Mac displays a short-lived pairing code and the iPhone starts pairing through an explicit nearby-device action. The code is used to identify the intended session and derive/display the SAS; it is not treated as a high-entropy secret or sole authentication factor. The user must compare the SAS on both screens and approve both sides. Attempts are rate-limited, expire quickly, and are cancelled after repeated mismatch.
@@ -174,14 +189,14 @@ Rules:
 | Local MITM | Intercept and alter handshake | TLS verification plus transcript signatures and SAS | Endpoint compromise or user-approved mismatch remains possible; test certificate/key substitution |
 | Peer impersonation | Claim to be a previously paired peer | Stored public-key verification and explicit key-change failure | Private-key compromise defeats identity; test changed-key recovery |
 | Replay | Reuse QR, transcript, hello, or launch request | Expiring single-use token, fresh nonces, session IDs, sequence/request IDs | Storage or implementation bugs; test duplicate and delayed messages |
-| Relay | Forward messages between legitimate endpoints and a victim | Physical QR origin check, transcript-bound SAS, both-side approval | Users may approve a relayed session; document relay limits and test delayed relay |
+| Relay | Forward messages between legitimate endpoints and a victim | Physical QR origin check, transcript-bound SAS, both-side approval | SAS comparison and QR confirmation do not cryptographically guarantee relay resistance; users may approve a relayed session; test delayed relay |
 | QR substitution | Make the user scan an attacker's record | Mac name confirmation, physical screen check, TLS key binding, SAS comparison | A compromised display or social engineering is outside endpoint crypto |
 | Short-code guessing | Guess a low-entropy code | Code is not the sole secret; expiry, rate limits, SAS comparison, lockout | DoS remains possible; test attempt limits |
 | Lost iPhone | Use the device to control the Mac | Keychain/device lock assumptions, explicit unpair, revocation, fresh session auth | Fully compromised unlocked device cannot be protected by pairing alone |
 | Unauthorized pairing attempt | Create repeated sessions or exhaust prompts | User approval on both devices, bounded sessions, cancellation and rate limits | Availability impact; test prompt flooding and cleanup |
 | Mac reinstall or key loss | Cause unexpected trust change | `Trust changed` state and explicit re-pair | User burden and possible DoS; validate recovery UX |
 
-The review identifies mitigations and detection points; it does not prove cryptographic security. Stage 2 must include negative tests and, before release, an independent security review.
+The review identifies mitigations and detection points; it does not prove cryptographic security. SAS comparison helps the user detect a mismatch when the displayed values differ, and QR confirmation helps establish the intended physical origin under the stated human-in-the-loop assumption. Neither step alone, nor their combination, cryptographically guarantees relay resistance: an attacker may forward an otherwise valid exchange without changing the SAS. Stage 2 must document this residual risk, avoid overstating the protection, include negative relay tests, and obtain an independent security review before release.
 
 ## Stage 2 security requirements
 
