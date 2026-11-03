@@ -27,6 +27,7 @@ final class TransportTLSBrowserModel: ObservableObject {
     private var connection: NWConnection?
     private var endpoint: NWEndpoint?
     private var timeoutWorkItem: DispatchWorkItem?
+    private var exchangeCompleted = false
 
     func startBrowsing() {
         browser?.cancel()
@@ -38,9 +39,10 @@ final class TransportTLSBrowserModel: ObservableObject {
 
         let browser = NWBrowser(for: .bonjour(type: serviceType, domain: nil), using: .tcp)
         self.browser = browser
-        browser.stateUpdateHandler = { [weak self] browserState in
+        browser.stateUpdateHandler = { [weak self, weak browser] browserState in
             Task { @MainActor in
                 guard let self else { return }
+                guard self.browser === browser else { return }
                 switch browserState {
                 case .ready: self.state = "Ready"
                 case .waiting(let error): self.state = "Waiting: \(error.localizedDescription)"
@@ -50,10 +52,11 @@ final class TransportTLSBrowserModel: ObservableObject {
                 }
             }
         }
-        browser.browseResultsChangedHandler = { [weak self] results, _ in
+        browser.browseResultsChangedHandler = { [weak self, weak browser] results, _ in
             Task { @MainActor in
-                self?.serviceCount = results.count
-                self?.endpoint = results.first?.endpoint
+                guard let self, self.browser === browser else { return }
+                self.serviceCount = results.count
+                self.endpoint = results.first?.endpoint
             }
         }
         browser.start(queue: .main)
@@ -65,6 +68,7 @@ final class TransportTLSBrowserModel: ObservableObject {
         guard expected.count == 64 else { state = "Enter a 64-character SHA-256 fingerprint"; return }
 
         connection?.cancel()
+        exchangeCompleted = false
         messageState = "Connecting"
         state = "Connecting"
         let tls = NWProtocolTLS.Options()
@@ -83,6 +87,7 @@ final class TransportTLSBrowserModel: ObservableObject {
         connection.stateUpdateHandler = { [weak self, weak connection] connectionState in
             Task { @MainActor in
                 guard let self, let connection else { return }
+                guard self.connection === connection else { return }
                 switch connectionState {
                 case .ready:
                     self.state = "TLS Ready — peer fingerprint verified"
@@ -98,10 +103,14 @@ final class TransportTLSBrowserModel: ObservableObject {
         }
         connection.start(queue: .main)
         let timeout = DispatchWorkItem { [weak self, weak connection] in
-            guard let self, let connection, connection.state != .ready else { return }
-            connection.cancel()
-            self.state = "Failed: connection timeout"
-            self.messageState = "No verified exchange"
+            Task { @MainActor in
+                guard let self, let connection,
+                      self.connection === connection,
+                      !self.exchangeCompleted else { return }
+                connection.cancel()
+                self.state = "Failed: connection or message timeout"
+                self.messageState = "No verified exchange"
+            }
         }
         timeoutWorkItem = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: timeout)
@@ -109,6 +118,7 @@ final class TransportTLSBrowserModel: ObservableObject {
 
     func stop() {
         timeoutWorkItem?.cancel()
+        exchangeCompleted = false
         connection?.cancel()
         browser?.cancel()
         connection = nil
@@ -118,11 +128,14 @@ final class TransportTLSBrowserModel: ObservableObject {
     }
 
     private func sendFrame(on connection: NWConnection, message: Data) {
-        var length = UInt32(message.count).bigEndian
-        let header = Data(bytes: &length, count: MemoryLayout<UInt32>.size)
-        connection.send(content: header + message, completion: .contentProcessed { [weak self] error in
+        guard let frame = FrameCodec.encode(message) else {
+            state = "Failed: invalid frame"
+            return
+        }
+        connection.send(content: frame, completion: .contentProcessed { [weak self, weak connection] error in
             Task { @MainActor in
-                self?.messageState = error == nil ? "Request sent; awaiting acknowledgment" : "Send failed"
+                guard let self, self.connection === connection, !self.exchangeCompleted else { return }
+                self.messageState = error == nil ? "Request sent; awaiting acknowledgment" : "Send failed"
             }
         })
     }
@@ -139,27 +152,46 @@ final class TransportTLSBrowserModel: ObservableObject {
     }
 
     private func receiveFrame(on connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { [weak self] header, _, _, error in
-            guard let header, header.count == 4, error == nil else {
-                Task { @MainActor in self?.messageState = "Receipt failed" }
-                return
-            }
-            let length = header.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-            guard length > 0, length <= 1024 else {
-                Task { @MainActor in self?.messageState = "Invalid frame length" }
-                connection.cancel()
-                return
-            }
-            connection.receive(minimumIncompleteLength: Int(length), maximumLength: Int(length)) { [weak self] payload, _, _, error in
+        var decoder = FrameDecoder()
+        func receiveNextChunk() {
+            connection.receive(minimumIncompleteLength: 1, maximumLength: FrameDecoder.maximumBufferedBytes) { [weak self, weak connection] data, _, isComplete, error in
                 Task { @MainActor in
-                    guard error == nil, let payload, payload == expectedAcknowledgment else {
-                        self?.messageState = "Unexpected acknowledgment"
+                    guard let self, let connection, self.connection === connection, !self.exchangeCompleted else { return }
+                    if let data, !data.isEmpty {
+                        do {
+                            for payload in try decoder.append(data) {
+                                guard payload == expectedAcknowledgment else {
+                                    self.messageState = "Unexpected acknowledgment"
+                                    connection.cancel()
+                                    return
+                                }
+                                guard !self.exchangeCompleted else { return }
+                                self.exchangeCompleted = true
+                                self.timeoutWorkItem?.cancel()
+                                self.messageState = "Receipt acknowledgment verified"
+                            }
+                        } catch {
+                            self.messageState = "Invalid or oversized frame"
+                            connection.cancel()
+                            return
+                        }
+                    }
+                    if let error {
+                        self.messageState = "Receipt failed: \(error.localizedDescription)"
+                        connection.cancel()
                         return
                     }
-                    self?.messageState = "Receipt acknowledgment verified"
+                    if isComplete {
+                        do { try decoder.finish() }
+                        catch { self.messageState = "Truncated acknowledgment" }
+                        connection.cancel()
+                        return
+                    }
+                    if !self.exchangeCompleted { receiveNextChunk() }
                 }
             }
         }
+        receiveNextChunk()
     }
 }
 

@@ -13,10 +13,16 @@ final class ExchangeCompletion: @unchecked Sendable {
     private let lock = NSLock()
     private var completed = false
 
-    func markCompleted() {
+    @discardableResult
+    func markCompleted() -> Bool {
         lock.lock()
+        guard !completed else {
+            lock.unlock()
+            return false
+        }
         completed = true
         lock.unlock()
+        return true
     }
 
     var isCompleted: Bool {
@@ -24,6 +30,10 @@ final class ExchangeCompletion: @unchecked Sendable {
         defer { lock.unlock() }
         return completed
     }
+}
+
+final class FrameAccumulator: @unchecked Sendable {
+    var decoder = FrameDecoder()
 }
 
 func log(_ message: String) {
@@ -71,29 +81,47 @@ func sendFramedMessage(on connection: NWConnection, message: Data) {
     })
 }
 
-func receiveFramedMessage(on connection: NWConnection, completion: @Sendable @escaping () -> Void) {
-    connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { header, _, _, error in
-        guard let header, error == nil, let length = FrameCodec.decodeLength(from: header) else {
-            log("invalid or incomplete frame header; closing connection")
-            connection.cancel()
-            return
-        }
-        connection.receive(minimumIncompleteLength: length, maximumLength: length) { payload, _, _, error in
-            guard let payload, error == nil else {
-                log("frame payload receive failed; closing connection")
+func receiveFramedMessage(on connection: NWConnection) -> ExchangeCompletion {
+    let accumulator = FrameAccumulator()
+    let exchange = ExchangeCompletion()
+
+    @Sendable func receiveNextChunk() {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: FrameDecoder.maximumBufferedBytes) { data, _, isComplete, error in
+            guard !exchange.isCompleted else { return }
+            if let data, !data.isEmpty {
+                do {
+                    for payload in try accumulator.decoder.append(data) {
+                        guard exchange.markCompleted() else { return }
+                        guard payload == expectedClientHello else {
+                            log("unexpected message; no application command executed")
+                            connection.cancel()
+                            return
+                        }
+                        log("client hello received; sending receipt acknowledgment")
+                        sendFramedMessage(on: connection, message: acknowledgment)
+                    }
+                } catch {
+                    log("invalid frame; closing connection; error=\(error)")
+                    connection.cancel()
+                    return
+                }
+            }
+            if let error {
+                log("frame receive failed; closing connection; error=\(error.localizedDescription)")
                 connection.cancel()
                 return
             }
-            guard payload == expectedClientHello else {
-                log("unexpected message; no application command executed")
+            if isComplete {
+                do { try accumulator.decoder.finish() }
+                catch { log("truncated frame; closing connection") }
                 connection.cancel()
                 return
             }
-            completion()
-            log("client hello received; sending receipt acknowledgment")
-            sendFramedMessage(on: connection, message: acknowledgment)
+            if !exchange.isCompleted { receiveNextChunk() }
         }
     }
+    receiveNextChunk()
+    return exchange
 }
 
 guard let p12Path = argumentValue("--p12"), let passwordPath = argumentValue("--password-file") else {
@@ -127,14 +155,13 @@ do {
             switch state {
             case .ready:
                 log("connection state: ready; encrypted channel established")
-                let exchange = ExchangeCompletion()
+                let exchange = receiveFramedMessage(on: connection)
                 let timeout = DispatchWorkItem {
                     guard !exchange.isCompleted else { return }
                     log("message exchange timeout; closing connection")
                     connection.cancel()
                 }
                 queue.asyncAfter(deadline: .now() + 8, execute: timeout)
-                receiveFramedMessage(on: connection) { exchange.markCompleted() }
             case .failed(let error): log("connection state: failed; TLS or transport error=\(error.localizedDescription)")
             case .cancelled: log("connection state: cancelled")
             case .waiting(let error): log("connection state: waiting; error=\(error.localizedDescription)")

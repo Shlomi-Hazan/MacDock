@@ -37,7 +37,7 @@ On the iPhone:
 
 1. Grant Local Network access when prompted.
 2. Tap `Browse` if browsing is not already active.
-3. Enter the fingerprint from `.local/identity-fingerprint.txt`.
+3. Enter the fingerprint from `.local/fingerprint.txt`.
 4. Select `Connect` after one TLS service is visible.
 5. A successful test requires `TLS Ready — peer fingerprint verified`, followed by `Receipt acknowledgment verified`.
 

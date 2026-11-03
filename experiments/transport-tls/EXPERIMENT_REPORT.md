@@ -52,17 +52,17 @@ Follow `README.md` in this directory. Generate the identity locally, run the adv
 | Scenario | Evidence | Result |
 | --- | --- | --- |
 | Swift package compilation | Verified by tool execution | Passed |
-| Frame encoding and invalid-length tests | Verified by tool execution | Passed |
+| Frame encoding, fragmentation, truncation, limits, and unexpected-message tests | Verified by tool execution | Passed; 7 automated tests |
 | iOS Xcode project listing | Verified by tool execution | Passed |
 | iOS Debug generic-device build | Verified by tool execution | Passed |
-| iOS Release generic-device build | Pending in this report revision | Not tested |
-| iOS Simulator build | Pending in this report revision | Not tested |
+| iOS Release generic-device build | Verified by tool execution | Passed with signing disabled |
+| iOS Simulator build | Verified by tool execution | Passed with signing disabled |
 | macOS identity loading and listener startup | Verified on Mac runtime | Passed with locally generated RSA identity; listener reached ready and advertised a dynamic port |
 | Mac TLS handshake with self-signed identity | Verified on Mac runtime | Passed at the listener; OpenSSL correctly reported the certificate as self-signed |
 | Mac framed hello/ACK exchange | Requires a protocol client | Not tested |
 | Physical iPhone TLS success and acknowledgment | Requires user-run device test | Not tested |
 | Incorrect fingerprint rejection on physical iPhone | Requires user-run device test | Not tested |
-| Listener unavailable, timeout, and cancellation | Partially represented in code; runtime evidence pending | Not tested |
+| Listener unavailable, timeout, cancellation, and network error paths | Static/unit coverage plus Mac timeout observation | Physical transport cases not tested |
 | Wi-Fi/USB path behavior | Follow-up from Issue #3; interface cause is unknown | Not tested |
 
 Compilation and static inspection do not prove TLS runtime behavior. No physical-device result is claimed here.
