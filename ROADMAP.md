@@ -7,6 +7,7 @@ Purpose: validate platform assumptions before production implementation.
 Deliverables:
 
 - MVP requirements and constraints.
+- Product journey, use cases, state glossary, and testable MVP acceptance criteria.
 - Apple API research.
 - Bonjour discovery experiment.
 - Transport and TLS experiment.
@@ -17,6 +18,8 @@ Deliverables:
 
 Completion criteria:
 
+- Product requirements distinguish user-facing requirements from technical assumptions.
+- MVP boundaries, error states, and unresolved product decisions are documented.
 - Experiments have recorded results and limitations.
 - Pairing and transport decisions are justified.
 - Stage 1 dependencies and acceptance criteria are documented.
