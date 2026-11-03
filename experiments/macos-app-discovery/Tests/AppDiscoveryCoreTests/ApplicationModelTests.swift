@@ -17,8 +17,8 @@ import Testing
 @Test func missingBundleIdentifierUsesOpaqueLocationDigest() {
     let identity = ApplicationIdentity(bundleIdentifier: nil, canonicalURL: URL(fileURLWithPath: "/Applications/Legacy.app"))
     #expect(identity.bundleIdentifier == nil)
-    #expect(identity.publicKey.hasPrefix("app:unknown-bundle:"))
-    #expect(!identity.publicKey.contains("/Applications"))
+    #expect(identity.experimentalKey.hasPrefix("app:unknown-bundle:"))
+    #expect(!identity.experimentalKey.contains("/Applications"))
 }
 
 @Test func incompleteBundleIsReportedWithoutCrashing() throws {

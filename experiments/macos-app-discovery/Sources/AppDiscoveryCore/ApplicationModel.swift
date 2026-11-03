@@ -18,8 +18,8 @@ public struct ApplicationIdentity: Codable, Equatable, Sendable {
         self.installationDigest = digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Opaque and safe to expose to a paired client; it does not disclose the path.
-    public var publicKey: String {
+    /// Deterministic experiment key only. A plain path digest is not approved as a privacy-preserving wire identifier.
+    public var experimentalKey: String {
         let bundle = bundleIdentifier ?? "unknown-bundle"
         return "app:\(bundle):\(installationDigest)"
     }

@@ -20,7 +20,7 @@ The smallest future protocol-facing model should contain:
 
 | Field | Purpose | Exposure |
 | --- | --- | --- |
-| Opaque application identity | Stable logical reference for Dock selection | Safe after authentication |
+| Approved application identity | Stable logical reference for Dock selection | Only after authenticated authorization and an approved identifier design |
 | Bundle identifier, optional | Useful logical identifier when present | Safe when not treated as unique alone |
 | Display name, optional | User-facing label | Safe after sanitization |
 | Icon representation, optional | Dock rendering data or versioned icon reference | Transfer normalized data, never a permanent path |
@@ -28,17 +28,26 @@ The smallest future protocol-facing model should contain:
 | Running state | Best-effort current state | Safe after authentication |
 | Freshness/source metadata | Allows the client to reason about stale discovery | Safe if it contains no path or personal data |
 
-Internal canonical URLs, file-resource identifiers, bundle objects, and filesystem errors must remain macOS-local. Absolute paths and personal directory names must not cross the future protocol boundary.
+Internal canonical URLs, file-resource identifiers, bundle objects, filesystem errors, and the experiment's unsalted SHA-256 path digest must remain macOS-local. Absolute paths and personal directory names must not cross the future protocol boundary. Authentication alone does not make a predictable path digest a privacy-preserving identifier.
 
 ## Identity strategy
 
 Display name is never an identity. The proposed internal identity is composite:
 
 1. Use the bundle identifier when present as the logical application identifier.
-2. Add an installation discriminator derived from the canonical, symlink-resolved bundle URL so two installations with the same bundle identifier remain distinct.
-3. If the bundle identifier is missing, use an opaque identity derived from the canonical URL digest.
+2. Add an installation discriminator derived from the canonical, symlink-resolved bundle URL so two installations with the same bundle identifier remain distinct. In this experiment that discriminator is a plain SHA-256 digest used only locally for deterministic comparison.
+3. If the bundle identifier is missing, use the same local experimental digest mechanism, but do not expose it as a network identity.
 
-This preserves deterministic identity for the same installation and distinguishes duplicates. A move, reinstall, or replacement can change the installation discriminator; the future Dock layer must therefore retain its selected record and mark it unavailable rather than silently deleting it. A later production design may add a reviewed migration heuristic, but must not silently merge distinct installations.
+This preserves deterministic identity for the same installation and distinguishes duplicates, but it is not inherently privacy-preserving: a predictable path digest is susceptible to dictionary attacks. A move, reinstall, or replacement can change the installation discriminator; the future Dock layer must therefore retain its selected record and mark it unavailable rather than silently deleting it. A later production design must choose either random locally persisted IDs or a locally keyed HMAC, with explicit key lifecycle and migration handling, and must not silently merge distinct installations.
+
+### Production wire-identifier alternatives
+
+| Strategy | Stability | Privacy and recovery trade-off |
+| --- | --- | --- |
+| Random opaque ID in a local registry | Stable while the registry and mapping survive | Stronger non-linkability; requires protected persistence, migration, and registry recovery behavior |
+| Locally keyed HMAC of canonical identity | Deterministic on one Mac while the key remains stable | Avoids plain path disclosure; requires Keychain-backed key lifecycle, rotation/migration handling, and careful reinstall semantics |
+
+Neither strategy is implemented or selected by this Stage 0 experiment. The experimental SHA-256 key is strictly internal and is not an approved production wire identifier. Authenticated access controls metadata exposure but does not change the digest's dictionary-attack properties.
 
 ## Discovery versus Dock state
 
@@ -108,4 +117,4 @@ The test suite does not fabricate an inaccessible real application or alter inst
 
 ## Limitations and next steps
 
-The experiment supports a bounded discovery prototype and an opaque composite identity proposal. It does not establish App Sandbox compatibility, complete Launch Services inventory semantics, or successful launching. Issue #7 must validate launch and activation separately. Distribution research must resolve sandbox and Mac App Store constraints before production discovery APIs are finalized.
+The experiment supports a bounded discovery prototype and a deterministic internal composite identity comparison. It does not establish a privacy-preserving production identity, App Sandbox compatibility, complete Launch Services inventory semantics, or successful launching. Issue #7 must validate launch and activation separately. Distribution research must resolve sandbox and Mac App Store constraints before production discovery APIs are finalized.

@@ -23,7 +23,7 @@ public struct ApplicationDiscoverer {
                 let bundle = Bundle(url: canonicalURL)
                 let bundleIdentifier = bundle?.bundleIdentifier
                 let identity = ApplicationIdentity(bundleIdentifier: bundleIdentifier, canonicalURL: canonicalURL)
-                guard seen.insert(identity.publicKey).inserted else { continue }
+                guard seen.insert(identity.experimentalKey).inserted else { continue }
 
                 let displayName = (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
                     ?? (bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String)
@@ -42,6 +42,6 @@ public struct ApplicationDiscoverer {
                 ))
             }
         }
-        return results.sorted { $0.identity.publicKey < $1.identity.publicKey }
+        return results.sorted { $0.identity.experimentalKey < $1.identity.experimentalKey }
     }
 }
