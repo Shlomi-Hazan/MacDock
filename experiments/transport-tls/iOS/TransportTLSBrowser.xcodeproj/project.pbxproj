@@ -3,13 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 71;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		B10000010000000000000001 /* TransportTLSBrowserApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000100000000000000001 /* TransportTLSBrowserApp.swift */; };
-		B10000010000000000000003 /* FrameCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000100000000000000005 /* FrameCodec.swift */; };
 		B10000010000000000000002 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B10000100000000000000003 /* Network.framework */; };
+		B10000010000000000000003 /* ../Sources/TransportTLSCore/FrameCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000100000000000000005 /* ../Sources/TransportTLSCore/FrameCodec.swift */; };
+		B10000010000000000000004 /* ../Sources/TransportTLSCore/ConnectionLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000100000000000000006 /* ../Sources/TransportTLSCore/ConnectionLifecycle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,7 +18,8 @@
 		B10000100000000000000002 /* Info.plist.example */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist.example; sourceTree = "<group>"; };
 		B10000100000000000000003 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		B10000100000000000000004 /* TransportTLSBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TransportTLSBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B10000100000000000000005 /* FrameCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Sources/TransportTLSCore/FrameCodec.swift; sourceTree = "<group>"; };
+		B10000100000000000000005 /* ../Sources/TransportTLSCore/FrameCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Sources/TransportTLSCore/FrameCodec.swift; sourceTree = "<group>"; };
+		B10000100000000000000006 /* ../Sources/TransportTLSCore/ConnectionLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Sources/TransportTLSCore/ConnectionLifecycle.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,23 +37,24 @@
 		B10000300000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				B10000300000000000000002 /* Sources */,
-				B10000300000000000000003 /* Resources */,
+				B10000300000000000000002 /* . */,
+				B10000300000000000000003 /* . */,
 				B10000300000000000000004 /* Frameworks */,
 				B10000300000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		B10000300000000000000002 /* Sources */ = {
+		B10000300000000000000002 /* . */ = {
 			isa = PBXGroup;
 			children = (
 				B10000100000000000000001 /* TransportTLSBrowserApp.swift */,
-				B10000100000000000000005 /* FrameCodec.swift */,
+				B10000100000000000000005 /* ../Sources/TransportTLSCore/FrameCodec.swift */,
+				B10000100000000000000006 /* ../Sources/TransportTLSCore/ConnectionLifecycle.swift */,
 			);
 			path = .;
 			sourceTree = "<group>";
 		};
-		B10000300000000000000003 /* Resources */ = {
+		B10000300000000000000003 /* . */ = {
 			isa = PBXGroup;
 			children = (
 				B10000100000000000000002 /* Info.plist.example */,
@@ -143,7 +146,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				B10000010000000000000001 /* TransportTLSBrowserApp.swift in Sources */,
-				B10000010000000000000003 /* FrameCodec.swift in Sources */,
+				B10000010000000000000003 /* ../Sources/TransportTLSCore/FrameCodec.swift in Sources */,
+				B10000010000000000000004 /* ../Sources/TransportTLSCore/ConnectionLifecycle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -160,7 +164,10 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist.example;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.macdock.experiment.transporttlsbrowser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -181,7 +188,10 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist.example;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.macdock.experiment.transporttlsbrowser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -194,12 +204,20 @@
 		};
 		B10000600000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; };
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
 			name = Debug;
 		};
 		B10000600000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_OPTIMIZATION_LEVEL = "-O"; };
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
@@ -207,13 +225,19 @@
 /* Begin XCConfigurationList section */
 		B10000700000000000000001 /* Build configuration list for PBXProject "TransportTLSBrowser" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (B10000600000000000000003 /* Debug */, B10000600000000000000004 /* Release */);
+			buildConfigurations = (
+				B10000600000000000000003 /* Debug */,
+				B10000600000000000000004 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		B10000700000000000000002 /* Build configuration list for PBXNativeTarget "TransportTLSBrowser" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (B10000600000000000000001 /* Debug */, B10000600000000000000002 /* Release */);
+			buildConfigurations = (
+				B10000600000000000000001 /* Debug */,
+				B10000600000000000000002 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};

@@ -52,7 +52,7 @@ Follow `README.md` in this directory. Generate the identity locally, run the adv
 | Scenario | Evidence | Result |
 | --- | --- | --- |
 | Swift package compilation | Verified by tool execution | Passed |
-| Frame encoding, fragmentation, truncation, limits, and unexpected-message tests | Verified by tool execution | Passed; 7 automated tests |
+| Frame encoding, fragmentation, truncation, limits, unexpected-message, and lifecycle tests | Verified by tool execution | Passed; 10 automated tests |
 | iOS Xcode project listing | Verified by tool execution | Passed |
 | iOS Debug generic-device build | Verified by tool execution | Passed |
 | iOS Release generic-device build | Verified by tool execution | Passed with signing disabled |
@@ -60,14 +60,39 @@ Follow `README.md` in this directory. Generate the identity locally, run the adv
 | macOS identity loading and listener startup | Verified on Mac runtime | Passed with locally generated RSA identity; listener reached ready and advertised a dynamic port |
 | Mac TLS handshake with self-signed identity | Verified on Mac runtime | Passed at the listener; OpenSSL correctly reported the certificate as self-signed |
 | Mac framed hello/ACK exchange | Requires a protocol client | Not tested |
-| Physical iPhone TLS success and acknowledgment | Requires user-run device test | Not tested |
-| Incorrect fingerprint rejection on physical iPhone | Requires user-run device test | Not tested |
+| Physical iPhone TLS success and acknowledgment | Maintainer-reported physical-device evidence | Passed: TLS ready, Wi-Fi path, and receipt acknowledgment |
+| Incorrect fingerprint rejection on physical iPhone | Maintainer-reported physical-device evidence | Passed: rejected with reported `-9825` bad certificate error |
 | Listener unavailable, timeout, cancellation, and network error paths | Static/unit coverage plus Mac timeout observation | Physical transport cases not tested |
-| Wi-Fi/USB path behavior | Follow-up from Issue #3; interface cause is unknown | Not tested |
+| Wi-Fi/USB path behavior | Follow-up from Issue #3; interface cause is unknown | Not tested beyond the reported Wi-Fi path |
 
 Compilation and static inspection do not prove TLS runtime behavior. No physical-device result is claimed here.
 
 The Mac runtime check also showed the bounded failure path: a TLS-ready client that sent no framed hello was closed after the eight-second message timeout. The OpenSSL check was an encryption/handshake check only; it was not a peer-authentication success.
+
+## Maintainer-reported physical iPhone evidence
+
+The following results were supplied by the maintainer after running the experiment on a physical iPhone. They were not independently executed by the tool environment.
+
+### Correct fingerprint
+
+The iPhone displayed:
+
+- `State: TLS Ready — peer fingerprint verified`
+- `TLS service results: 1`
+- `Path: satisfied / wifi`
+- `Message: Receipt acknowledgment verified`
+
+This verifies the reported physical TLS connection, exact certificate fingerprint verification, and framed hello/acknowledgment exchange. It does not establish production pairing or authorization.
+
+### Incorrect fingerprint
+
+After changing one fingerprint character, the iPhone displayed `State: Cancelled` and `Message: No verified exchange`. The macOS advertiser reported `Network.NWError error -9825 - misc. bad certificate`.
+
+This is evidence that the incorrect fingerprint attempt was rejected during TLS establishment. The generic iOS cancellation display was a reporting limitation in the previous implementation. The current implementation is designed to preserve the TLS or peer-verification failure state instead of overwriting it with cancellation; this UI correction requires a post-fix physical retest.
+
+### Keychain observation
+
+During initial attempts, macOS displayed a Keychain authorization prompt stating that `TransportTLSAdvertiser` wanted to sign using key `Imported Private Key`. The exchange timed out before authorization. After authorization, the correct-fingerprint test succeeded. This is an observed dependency of this test environment, not a confirmed universal macOS behavior. No Keychain credentials or signing material are stored in the repository.
 
 ## Security limitations and rejected shortcuts
 

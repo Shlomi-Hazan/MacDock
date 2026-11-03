@@ -28,10 +28,15 @@ final class TransportTLSBrowserModel: ObservableObject {
     private var endpoint: NWEndpoint?
     private var timeoutWorkItem: DispatchWorkItem?
     private var exchangeCompleted = false
+    private var lifecycle = ConnectionLifecycle()
 
     func startBrowsing() {
         browser?.cancel()
         connection?.cancel()
+        connection = nil
+        timeoutWorkItem?.cancel()
+        lifecycle.begin()
+        exchangeCompleted = false
         serviceCount = 0
         endpoint = nil
         messageState = "No message exchange"
@@ -68,6 +73,9 @@ final class TransportTLSBrowserModel: ObservableObject {
         guard expected.count == 64 else { state = "Enter a 64-character SHA-256 fingerprint"; return }
 
         connection?.cancel()
+        connection = nil
+        timeoutWorkItem?.cancel()
+        lifecycle.begin()
         exchangeCompleted = false
         messageState = "Connecting"
         state = "Connecting"
@@ -90,13 +98,22 @@ final class TransportTLSBrowserModel: ObservableObject {
                 guard self.connection === connection else { return }
                 switch connectionState {
                 case .ready:
+                    guard self.lifecycle.terminalOutcome == nil else { return }
                     self.state = "TLS Ready — peer fingerprint verified"
                     self.pathSummary = self.pathDescription(connection.currentPath)
                     self.sendFrame(on: connection, message: expectedHello)
                     self.receiveFrame(on: connection)
-                case .waiting(let error): self.state = "Waiting: \(error.localizedDescription)"
-                case .failed(let error): self.state = "Failed: \(error.localizedDescription)"; self.messageState = "TLS or transport failure"
-                case .cancelled: self.state = "Cancelled"
+                case .waiting(let error):
+                    guard self.lifecycle.terminalOutcome == nil else { return }
+                    self.state = "Waiting: \(error.localizedDescription)"
+                case .failed:
+                    guard self.lifecycle.finish(.failed) else { return }
+                    self.state = "Failed: TLS or peer verification failed"
+                    self.messageState = "TLS or transport failure"
+                case .cancelled:
+                    guard self.lifecycle.finish(.cancelled) else { return }
+                    self.state = "Cancelled"
+                    self.messageState = "No verified exchange"
                 default: break
                 }
             }
@@ -106,7 +123,9 @@ final class TransportTLSBrowserModel: ObservableObject {
             Task { @MainActor in
                 guard let self, let connection,
                       self.connection === connection,
-                      !self.exchangeCompleted else { return }
+                      !self.exchangeCompleted,
+                      self.lifecycle.terminalOutcome == nil else { return }
+                guard self.lifecycle.finish(.timedOut) else { return }
                 connection.cancel()
                 self.state = "Failed: connection or message timeout"
                 self.messageState = "No verified exchange"
@@ -118,24 +137,32 @@ final class TransportTLSBrowserModel: ObservableObject {
 
     func stop() {
         timeoutWorkItem?.cancel()
+        _ = lifecycle.finish(.cancelled)
         exchangeCompleted = false
         connection?.cancel()
         browser?.cancel()
         connection = nil
         browser = nil
-        state = "Cancelled"
+        state = "Cancelled by user"
         messageState = "No message exchange"
     }
 
     private func sendFrame(on connection: NWConnection, message: Data) {
         guard let frame = FrameCodec.encode(message) else {
+            _ = lifecycle.finish(.failed)
             state = "Failed: invalid frame"
             return
         }
         connection.send(content: frame, completion: .contentProcessed { [weak self, weak connection] error in
             Task { @MainActor in
-                guard let self, self.connection === connection, !self.exchangeCompleted else { return }
-                self.messageState = error == nil ? "Request sent; awaiting acknowledgment" : "Send failed"
+                guard let self, self.connection === connection else { return }
+                if error != nil {
+                    guard self.lifecycle.finish(.failed) else { return }
+                    self.state = "Failed: TLS or transport failure"
+                    self.messageState = "Send failed"
+                } else if !self.exchangeCompleted, self.lifecycle.terminalOutcome == nil {
+                    self.messageState = "Request sent; awaiting acknowledgment"
+                }
             }
         })
     }
@@ -156,34 +183,48 @@ final class TransportTLSBrowserModel: ObservableObject {
         func receiveNextChunk() {
             connection.receive(minimumIncompleteLength: 1, maximumLength: FrameDecoder.maximumBufferedBytes) { [weak self, weak connection] data, _, isComplete, error in
                 Task { @MainActor in
-                    guard let self, let connection, self.connection === connection, !self.exchangeCompleted else { return }
+                    guard let self, let connection,
+                          self.connection === connection,
+                          !self.exchangeCompleted,
+                          self.lifecycle.terminalOutcome == nil else { return }
                     if let data, !data.isEmpty {
                         do {
                             for payload in try decoder.append(data) {
                                 guard payload == expectedAcknowledgment else {
+                                    guard self.lifecycle.finish(.failed) else { return }
+                                    self.state = "Failed: unexpected acknowledgment"
                                     self.messageState = "Unexpected acknowledgment"
                                     connection.cancel()
                                     return
                                 }
-                                guard !self.exchangeCompleted else { return }
+                                guard !self.exchangeCompleted, self.lifecycle.terminalOutcome == nil else { return }
                                 self.exchangeCompleted = true
+                                _ = self.lifecycle.finish(.completed)
                                 self.timeoutWorkItem?.cancel()
                                 self.messageState = "Receipt acknowledgment verified"
                             }
                         } catch {
+                            guard self.lifecycle.finish(.failed) else { return }
+                            self.state = "Failed: invalid or oversized frame"
                             self.messageState = "Invalid or oversized frame"
                             connection.cancel()
                             return
                         }
                     }
                     if let error {
-                        self.messageState = "Receipt failed: \(error.localizedDescription)"
+                        guard self.lifecycle.finish(.failed) else { return }
+                        self.state = "Failed: TLS or transport failure"
+                        self.messageState = "Receipt failed"
                         connection.cancel()
                         return
                     }
                     if isComplete {
                         do { try decoder.finish() }
-                        catch { self.messageState = "Truncated acknowledgment" }
+                        catch {
+                            guard self.lifecycle.finish(.failed) else { return }
+                            self.state = "Failed: truncated acknowledgment"
+                            self.messageState = "Truncated acknowledgment"
+                        }
                         connection.cancel()
                         return
                     }

@@ -70,3 +70,36 @@ import Testing
     #expect(result.count == 1)
     #expect(result[0] != expected)
 }
+
+@Test func failureWinsOverLaterCancellation() {
+    var lifecycle = ConnectionLifecycle()
+    lifecycle.begin()
+    let failed = lifecycle.finish(.failed)
+    let cancelled = lifecycle.finish(.cancelled)
+    #expect(failed)
+    #expect(!cancelled)
+    #expect(lifecycle.terminalOutcome == .failed)
+}
+
+@Test func userCancellationIsDistinctFromTimeout() {
+    var lifecycle = ConnectionLifecycle()
+    lifecycle.begin()
+    let cancelled = lifecycle.finish(.cancelled)
+    #expect(cancelled)
+    #expect(lifecycle.terminalOutcome == .cancelled)
+
+    lifecycle.begin()
+    let timedOut = lifecycle.finish(.timedOut)
+    #expect(timedOut)
+    #expect(lifecycle.terminalOutcome == .timedOut)
+}
+
+@Test func beginResetsPreviousTerminalOutcome() {
+    var lifecycle = ConnectionLifecycle()
+    lifecycle.begin()
+    _ = lifecycle.finish(.failed)
+    lifecycle.begin()
+    #expect(lifecycle.terminalOutcome == nil)
+    let failed = lifecycle.finish(.failed)
+    #expect(failed)
+}

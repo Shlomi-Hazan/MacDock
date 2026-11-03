@@ -41,6 +41,8 @@ On the iPhone:
 4. Select `Connect` after one TLS service is visible.
 5. A successful test requires `TLS Ready — peer fingerprint verified`, followed by `Receipt acknowledgment verified`.
 
+An incorrect fingerprint must not produce a trusted state or verified acknowledgment. The current experiment reports the TLS or peer-verification failure separately from user cancellation; exact OS error causes are not inferred beyond what Network.framework reports.
+
 The experiment distinguishes TLS encryption and certificate pinning from production pairing. Discovery does not establish trust. No application-control command is sent.
 
 ## Protocol
