@@ -1,0 +1,25 @@
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Local workspace data
+work/
+outputs/
+
+# Secrets and signing material
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.crt
+*.key
+*.pem

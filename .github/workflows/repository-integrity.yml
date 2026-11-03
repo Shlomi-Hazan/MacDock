@@ -1,0 +1,42 @@
+name: Repository Integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-integrity:
+    name: repository-integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check required foundation files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_files=(
+            README.md
+            AGENTS.md
+            PRD.md
+            ROADMAP.md
+            CONTRIBUTING.md
+            SECURITY.md
+            LICENSE
+            CHANGELOG.md
+            .gitignore
+            .editorconfig
+            docs/decisions/0001-public-repository-and-staged-bootstrap.md
+            .github/pull_request_template.md
+          )
+          for file in "${required_files[@]}"; do
+            test -s "$file"
+          done
+
+      - name: Check whitespace errors
+        run: git diff --check
