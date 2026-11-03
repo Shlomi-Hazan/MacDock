@@ -44,6 +44,23 @@ The minimal fix was to add `CFBundleIdentifier` with the value `$(PRODUCT_BUNDLE
 
 After the fix, Debug and Release generic iOS device builds passed with signing disabled. The built plist was inspected and contained the resolved bundle identifier, `NSLocalNetworkUsageDescription`, and `NSBonjourServices` containing `_macdock._tcp`.
 
+The final target uses one consistent metadata strategy: `GENERATE_INFOPLIST_FILE = NO` in both Debug and Release, with `INFOPLIST_FILE = Info.plist.example`. The checked-in plist explicitly supplies the application identity and version keys; Xcode supplies platform-derived keys. No generated and manual plist sources are mixed.
+
+## Bundle validation matrix
+
+| Validation | Result | Evidence |
+| --- | --- | --- |
+| Generic iOS device Debug build | Passed | `xcodebuild`, `CODE_SIGNING_ALLOWED=NO` |
+| Generic iOS device Release build | Passed | `xcodebuild`, `CODE_SIGNING_ALLOWED=NO` |
+| iOS Simulator Debug build | Passed | `xcodebuild`, `CODE_SIGNING_ALLOWED=NO` |
+| Built plist syntax | Passed | `plutil -lint` for all three app bundles |
+| Bundle identifier | Passed | Resolved to `com.macdock.experiment.bonjourbrowser` |
+| Application name metadata | Passed | `CFBundleName=BonjourBrowser`, `CFBundleDisplayName=MacDock Bonjour Experiment` |
+| Executable consistency | Passed | `CFBundleExecutable=BonjourBrowser`; matching executable exists in the app bundle |
+| Version/package metadata | Passed | `APPL`, version `1`, short version `0.1.0`, `LSRequiresIPhoneOS=true` |
+| Local Network declarations | Passed | Usage description present; `_macdock._tcp` present |
+| Code-signature verification | Not applicable to these builds | Builds intentionally used `CODE_SIGNING_ALLOWED=NO`; signed device install remains a manual Xcode validation |
+
 ## Implementation approach
 
 The experiment contains two isolated macOS command-line targets:

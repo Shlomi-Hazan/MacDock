@@ -42,6 +42,8 @@ The committed target contains no Team ID, provisioning profile, certificate, dev
 
 The plist also declares `CFBundleIdentifier` as `$(PRODUCT_BUNDLE_IDENTIFIER)`. This is required because the target uses a checked-in plist with `GENERATE_INFOPLIST_FILE = NO`; without the explicit key, the built app is not a valid installable bundle.
 
+The same plist explicitly supplies `CFBundleName`, `CFBundleDisplayName`, `CFBundleExecutable`, `CFBundlePackageType`, `CFBundleVersion`, `CFBundleShortVersionString`, and `LSRequiresIPhoneOS`. Xcode supplies platform-generated keys such as `CFBundleSupportedPlatforms`, `MinimumOSVersion`, and `UIDeviceFamily`.
+
 For a no-signing validation, run:
 
 ```sh
