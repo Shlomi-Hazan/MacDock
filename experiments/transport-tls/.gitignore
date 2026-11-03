@@ -1,0 +1,4 @@
+.local/
+*.key.pem
+*.p12
+*.password
