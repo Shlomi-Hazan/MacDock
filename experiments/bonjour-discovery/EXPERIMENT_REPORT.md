@@ -1,7 +1,7 @@
 # Bonjour Discovery Experiment Report
 
 - Issue: [#3](https://github.com/Shlomi-Hazan/MacDock/issues/3)
-- Status: Xcode target prepared; physical iPhone validation remains pending
+- Status: Physical iPhone validation completed from user-reported observations; unresolved USB/Wi-Fi behavior remains documented
 - Date: 2026-11-03
 
 ## Research question
@@ -24,7 +24,7 @@ Can a minimal macOS service advertise a dedicated Bonjour service and can a nati
 - Architecture: arm64
 - Swift toolchain: Swift 6.2.4
 - Xcode: 26.3, build 17C529
-- Physical iPhone: not connected to this execution environment
+- Physical iPhone: physical validation performed by the maintainer; observations below are user-reported, not tool-executed
 - Wi-Fi topology: not independently measured by the experiment runner
 
 ### Evidence labels
@@ -32,7 +32,8 @@ Can a minimal macOS service advertise a dedicated Bonjour service and can a nati
 - **Verified by compilation:** the macOS Swift Package targets compiled successfully.
 - **Verified on macOS runtime:** the advertiser/browser processes were run locally and their lifecycle/result observations were captured below.
 - **Verified by simulator compilation:** the isolated iOS Xcode target built for iOS Simulator without signing.
-- **Prepared but not run on hardware:** the iOS target was not installed or executed on the physical iPhone here because local Development Team selection is still required.
+- **Not run by the tool environment on hardware:** the tool environment did not install or execute the iOS target; physical results below are explicitly user-reported.
+- **User-reported physical-device evidence:** the maintainer installed and ran the signed experiment on the physical iPhone and reported the observations in this report.
 - **Documentation only:** platform permission and limitation statements linked to Apple documentation.
 - **Not tested:** physical iPhone discovery, permission denial on iOS, Wi-Fi interruption, sleep/wake, and multi-device behavior.
 
@@ -61,6 +62,33 @@ The final target uses one consistent metadata strategy: `GENERATE_INFOPLIST_FILE
 | Local Network declarations | Passed | Usage description present; `_macdock._tcp` present |
 | Code-signature verification | Not applicable to these builds | Builds intentionally used `CODE_SIGNING_ALLOWED=NO`; signed device install remains a manual Xcode validation |
 
+## Physical-device evidence
+
+The following results were supplied by the maintainer after installing and running the experiment on the physical iPhone. They are recorded as user-reported observations; no screenshots, measurements, or additional results are inferred.
+
+| Scenario | User-reported observation | Evidence classification |
+| --- | --- | --- |
+| Advertiser running | iPhone showed `State: Ready` and `Visible services: 1`. | User-reported physical device |
+| Advertiser stopped | Visible service count changed from `1` to `0`. | User-reported physical device |
+| Advertiser restarted | Visible service count changed from `0` to `1`. | User-reported physical device |
+| Local Network permission disabled, browser restarted | State was `Waiting`, error was `PolicyDenied (-65570)`, and visible services were `0`. | User-reported physical device |
+| Local Network permission re-enabled, browser restarted | State returned to `Ready` and visible services returned to `1`. | User-reported physical device |
+| Wi-Fi disabled while USB remained connected | One service remained visible after restarting the browser. | User-reported physical device; unresolved behavior |
+| Wi-Fi disabled, USB disconnected, advertiser stopped | State was `Ready` and visible services were `0`. | User-reported physical device |
+| Wi-Fi disabled, USB disconnected, advertiser running | Visible services were `0`. | User-reported physical device |
+| Wi-Fi restored to the Mac's local network, USB disconnected, advertiser running | State was `Ready` and visible services were `1`. | User-reported physical device |
+
+The Wi-Fi-disabled/USB-connected result is not interpreted as proof of a USB-assisted Bonjour discovery path. It may reflect device state, cached results, routing, or another environmental factor. The experiment does not identify the cause.
+
+## Acceptance criteria assessment
+
+All Issue #3 acceptance criteria are satisfied based on the combined local evidence and the user-reported physical-device observations:
+
+1. The iPhone discovered the intended Mac service on the target network.
+2. Local Network denial produced an observable `Waiting`/`PolicyDenied (-65570)` state, while an advertiser-absent case produced `Ready` with zero visible services. This distinction is documented for the observed run and is not generalized to every OS/network condition.
+3. The experiment logs and UI expose lifecycle state, error state, and service counts without device identifiers or secrets.
+4. All experiment code remains isolated under `experiments/bonjour-discovery/` and is not part of a production target.
+
 ## Implementation approach
 
 The experiment contains two isolated macOS command-line targets:
@@ -87,7 +115,7 @@ cd experiments/bonjour-discovery
 swift run BonjourBrowser
 ```
 
-Type `q` and press Return to stop either command cleanly. Stop and restart the advertiser to exercise service disappearance and reappearance. The iOS procedure is documented in [README.md](README.md) and requires a manually created, signed Xcode iOS app target.
+Type `q` and press Return to stop either command cleanly. Stop and restart the advertiser to exercise service disappearance and reappearance. For iOS, open the isolated `iOS/BonjourBrowser.xcodeproj`, select a local development team, and run on the physical device as documented in [README.md](README.md).
 
 ## Test matrix
 
@@ -99,14 +127,14 @@ Type `q` and press Return to stop either command cleanly. Stop and restart the a
 | macOS browser observes advertiser | Passed | Verified on macOS runtime | Browser reached `ready` and observed visible service count `1`. |
 | Advertiser stops | Passed | Verified on macOS runtime | Typing `q` cancelled the advertiser; browser observed visible service count `0`. |
 | Advertiser restarts | Passed | Verified on macOS runtime | Restarted advertiser; browser observed visible service count `1`. |
-| iPhone with Local Network allowed | Not run | Not tested | Requires manual signing/install and physical iPhone. |
-| iPhone with Local Network denied | Not run | Not tested | Requires permission reset and physical iPhone interaction. |
-| Wi-Fi disconnect/reconnect | Not run | Not tested | Requires coordinated physical network change. |
+| iPhone with Local Network allowed | Passed | User-reported physical device | Ready state and one visible service were observed. |
+| iPhone with Local Network denied | Passed | User-reported physical device | Waiting with `PolicyDenied (-65570)` and zero services were observed. |
+| Wi-Fi disconnect/reconnect | Partially observed | User-reported physical device | Wi-Fi-off/USB-connected behavior remains unresolved; Wi-Fi-off/USB-disconnected and restoration cases were recorded. |
 | Mac sleep/wake | Not run | Not tested | Requires physical Mac sleep/wake while advertiser is active. |
-| iOS app relaunch | Not run | Not tested | Requires physical iPhone or simulator target. |
+| iOS browser restart after permission/network changes | Passed | User-reported physical device | Restart behavior was included in the reported permission and Wi-Fi scenarios. |
 | Multiple services/duplicate events | Not run | Not tested | Requires multiple advertisers or controlled duplicate service publication. |
 
-The Xcode project was validated with `xcodebuild -list` and built successfully for iOS Simulator with signing disabled. A normal device build was attempted and was blocked by Xcode's requirement for a locally selected Development Team; no signing configuration was committed.
+The Xcode project was validated with `xcodebuild -list` and built successfully for iOS Simulator and generic iOS devices with signing disabled. The maintainer subsequently installed and ran the signed app on the physical iPhone. No signing configuration or personal Team ID was committed.
 
 ## Execution log
 
@@ -131,13 +159,15 @@ No service endpoint, MAC address, IP address, or device identifier was included 
 
 ## Conclusions
 
-The minimal native API path is viable for a macOS advertiser and a browser implementation, and the isolated sources are suitable for the next manual iOS build step. Runtime evidence is incomplete: no physical iPhone discovery, permission matrix, network interruption, sleep/wake, or duplicate-result validation was performed in this execution. Therefore Issue #3 must remain open until the target iPhone evidence is captured and reviewed.
+The minimal native API path is viable for a macOS advertiser and a physical iPhone browser. The reported permission and service lifecycle observations satisfy Issue #3's acceptance criteria. The Wi-Fi-disabled/USB-connected observation remains unexplained and should not be treated as an architectural capability or authentication signal.
 
 ## Recommendations
 
 - Keep Bonjour discovery isolated from authentication and transport protocol decisions.
 - Use the iOS physical-device run to record Local Network permission states and exact `NWBrowser` state transitions.
 - Keep service type/name and metadata stable for the experiment, but do not treat them as a production identity scheme.
+- Treat `PolicyDenied (-65570)` as evidence of a denied local-network policy in this observed case, not as a universal classifier for all discovery failures.
+- Investigate the Wi-Fi/USB anomaly only if it affects supported connection behavior; do not build production discovery assumptions from this single observation.
 - Feed TLS, connection lifecycle, and peer-trust questions into Issue #4 and Issue #5 rather than expanding this experiment.
 
 ## Remaining questions for Issue #4
