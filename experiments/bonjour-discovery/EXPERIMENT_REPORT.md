@@ -35,7 +35,7 @@ Can a minimal macOS service advertise a dedicated Bonjour service and can a nati
 - **Not run by the tool environment on hardware:** the tool environment did not install or execute the iOS target; physical results below are explicitly user-reported.
 - **User-reported physical-device evidence:** the maintainer installed and ran the signed experiment on the physical iPhone and reported the observations in this report.
 - **Documentation only:** platform permission and limitation statements linked to Apple documentation.
-- **Not tested:** physical iPhone discovery, permission denial on iOS, Wi-Fi interruption, sleep/wake, and multi-device behavior.
+- **Not tested:** Mac sleep/wake, multiple services or duplicate-result behavior, and the cause of the Wi-Fi/USB anomaly.
 
 ## Bundle installation diagnosis
 
@@ -150,12 +150,12 @@ No service endpoint, MAC address, IP address, or device identifier was included 
 
 ## Observations and limitations
 
-- This experiment demonstrates the API shape and local macOS behavior only; it does not satisfy the physical iPhone discovery acceptance criterion by itself.
+- The combined experiment evidence demonstrates the API shape, local macOS behavior, and the reported physical iPhone discovery and permission behavior.
 - The command-line macOS targets do not have an iOS app lifecycle, iOS Local Network prompt, or iOS signing profile.
-- The iOS project is runnable after the user selects a local development team in Xcode; this is a signing prerequisite, not physical discovery evidence.
+- The iOS project is runnable after selecting a local development team in Xcode; signing configuration remains local and is not part of the public experiment source.
 - The experiment reports service counts rather than service endpoint details to minimize identifier exposure. A later experiment may need stable, non-sensitive service metadata for user selection.
 - Discovery does not imply a connection, authentication, authorization, or readiness to receive MacDock commands.
-- The exact Local Network prompt and denial behavior must be observed from a signed app target on the relevant OS versions.
+- The observed Local Network denial behavior was `Waiting` with `PolicyDenied (-65570)` on the tested physical device. This is evidence for that run, not a universal classifier for every OS or network failure.
 
 ## Conclusions
 
@@ -164,7 +164,7 @@ The minimal native API path is viable for a macOS advertiser and a physical iPho
 ## Recommendations
 
 - Keep Bonjour discovery isolated from authentication and transport protocol decisions.
-- Use the iOS physical-device run to record Local Network permission states and exact `NWBrowser` state transitions.
+- Preserve the physical-device evidence matrix when evaluating future discovery or transport changes.
 - Keep service type/name and metadata stable for the experiment, but do not treat them as a production identity scheme.
 - Treat `PolicyDenied (-65570)` as evidence of a denied local-network policy in this observed case, not as a universal classifier for all discovery failures.
 - Investigate the Wi-Fi/USB anomaly only if it affects supported connection behavior; do not build production discovery assumptions from this single observation.
