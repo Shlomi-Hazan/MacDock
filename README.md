@@ -21,7 +21,7 @@ Touchpad, keyboard, media controls, clipboard synchronization, and other advance
 The initial native foundation is organized as an Xcode workspace containing two independent application projects:
 
 - `MacDockMac/MacDockMac.xcodeproj` — macOS menu bar companion shell.
-- `MacDockiOS/MacDockiOS.xcodeproj` — foreground-only iOS SwiftUI shell.
+- `MacDockiOS/MacDockiOS.xcodeproj` — foreground-only iOS SwiftUI shell with truthful `Active`, `Inactive`, and `Background` scene status.
 
 Open `MacDock.xcworkspace` in Xcode. For signing-safe command-line validation, use the project targets directly and disable signing for generic iOS builds when a local development team is not configured:
 
@@ -33,7 +33,7 @@ xcodebuild -project MacDockiOS/MacDockiOS.xcodeproj -target MacDockiOS -configur
 
 Development signing remains local. Do not commit Team IDs, provisioning profiles, certificates, or device identifiers.
 
-For graphical validation, select the `MacDockMac` scheme and `My Mac` in Xcode to confirm the menu bar shell appears, then use `Quit MacDock`. Select `MacDockiOS` with an available simulator or locally signed development device to confirm the placeholder foreground screen. These checks do not enable any production networking or control behavior.
+For graphical validation, select the `MacDockMac` scheme and `My Mac` in Xcode to confirm the menu bar shell appears, then use `Quit MacDock`. Select `MacDockiOS` with an available simulator or locally signed development device to confirm the placeholder screen and its scene lifecycle status. These checks do not enable any production networking, background execution, or control behavior.
 
 ## Development principles
 
