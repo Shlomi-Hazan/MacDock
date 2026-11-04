@@ -29,11 +29,11 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C10000400000000000000001 /* MacDockiOS */ = {isa = PBXNativeTarget; buildConfigurationList = C10000700000000000000002 /* Build configuration list for PBXNativeTarget "MacDockiOS" */; buildPhases = (C10000200000000000000002 /* Sources */, C10000200000000000000001 /* Frameworks */, C10000200000000000000003 /* Resources */); buildRules = (); dependencies = (); name = MacDockiOS; productName = MacDockiOS; productReference = C10000100000000000000003 /* MacDockiOS.app */; productType = "com.apple.product-type.application"; };
+		C10000400000000000000001 /* MacDockiOS */ = {isa = PBXNativeTarget; buildConfigurationList = C10000700000000000000002 /* Build configuration list for PBXNativeTarget "MacDockiOS" */; buildPhases = (C10000200000000000000002 /* Sources */, C10000200000000000000001 /* Frameworks */, C10000200000000000000003 /* Resources */); buildRules = (); dependencies = (); name = MacDockiOS; packageProductDependencies = (E10000900000000000000001 /* MacDockShared */); productName = MacDockiOS; productReference = C10000100000000000000003 /* MacDockiOS.app */; productType = "com.apple.product-type.application"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		C10000500000000000000001 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2630; TargetAttributes = {C10000400000000000000001 = {CreatedOnToolsVersion = 26.3; }; }; }; buildConfigurationList = C10000700000000000000001 /* Build configuration list for PBXProject "MacDockiOS" */; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = C10000300000000000000001; productRefGroup = C10000300000000000000005 /* Products */; projectDirPath = ""; projectRoot = ""; targets = (C10000400000000000000001 /* MacDockiOS */); };
+		C10000500000000000000001 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2630; TargetAttributes = {C10000400000000000000001 = {CreatedOnToolsVersion = 26.3; }; }; }; buildConfigurationList = C10000700000000000000001 /* Build configuration list for PBXProject "MacDockiOS" */; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = C10000300000000000000001; packageReferences = (E10000800000000000000001 /* XCLocalSwiftPackageReference "MacDockShared" */); productRefGroup = C10000300000000000000005 /* Products */; projectDirPath = ""; projectRoot = ""; targets = (C10000400000000000000001 /* MacDockiOS */); };
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -43,6 +43,17 @@
 /* Begin PBXSourcesBuildPhase section */
 		C10000200000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C10000010000000000000001 /* MacDockiOSApp.swift in Sources */); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E10000800000000000000001 /* XCLocalSwiftPackageReference "MacDockShared" */ = {isa = XCLocalSwiftPackageReference; relativePath = ../MacDockShared; };
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E10000900000000000000001 /* MacDockShared */ = {isa = XCSwiftPackageProductDependency; package = E10000800000000000000001 /* XCLocalSwiftPackageReference "MacDockShared" */; productName = MacDockShared; };
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C10000600000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; INFOPLIST_FILE = Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.macdock.ios; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = 1; }; name = Debug; };

@@ -6,6 +6,12 @@ MacDock is an independent, native Apple-platform application that turns an iPhon
 
 MacDock has completed Stage 0 with a maintainer-approved Conditional Go and is beginning Stage 1: architecture and foundation. The current production foundation contains only inert native application shells; networking, pairing, application inventory, Dock synchronization, launch, and activation are not implemented.
 
+The shared foundation package is located at `MacDockShared/`. It contains only Foundation-compatible models and pure logic shared by the native targets. Run its tests with:
+
+```sh
+swift test --package-path MacDockShared
+```
+
 The initial MVP targets one Mac and one iPhone. The interactive Dock is expected to operate while the iOS application is in the foreground. The first MVP focuses on securely pairing the devices, displaying a customizable set of Mac applications, and launching or activating those applications from the iPhone.
 
 Touchpad, keyboard, media controls, clipboard synchronization, and other advanced capabilities are intentionally out of scope for the initial MVP.
