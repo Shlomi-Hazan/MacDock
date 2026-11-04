@@ -3,11 +3,14 @@
 - Issue: [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38)
 - Status: Proposed specification for independent review
 - Scope: one Mac and one iPhone, before production pairing implementation
+- Requirements baseline accepted by maintainer: 2026-11-04
 - Related: [ADR 0003](../decisions/0003-qr-first-pairing-and-peer-authentication.md), [pairing threat model](0005-secure-pairing-threat-model.md), [ADR 0008](../decisions/0008-stage-1-integration-and-stage-2-readiness.md)
 
 ## Decision boundary
 
 This document is a security specification proposal, not a cryptographic proof and not an implementation. It does not accept ADR 0003, generate keys, establish sessions, or authorize application control. Any construction described below requires independent security review, canonical test vectors, and maintainer approval before production code can use it.
+
+The maintainer accepts this document as the Stage 2 security requirements baseline on 2026-11-04. That acceptance covers the security objectives, threat model, trust boundaries, negative-test requirements, and future implementation gates only. It does not approve ADR 0003, select a cryptographic construction, approve a pairing handshake or TLS peer-verification policy, establish production device trust, authorize trusted sessions, or enable remote application control.
 
 ## Security objectives and assets
 
