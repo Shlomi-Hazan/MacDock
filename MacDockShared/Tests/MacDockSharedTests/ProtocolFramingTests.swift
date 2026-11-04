@@ -60,7 +60,7 @@ struct ProtocolFramingTests {
         }
 
         var oversizedDecoder = ProtocolFrameDecoder()
-        let oversizedLength = UInt32(ProtocolFrameCodec.maximumFramePayloadLength + 1).bigEndian
+        let oversizedLength = UInt32(ProtocolFrameCodec.maximumEncodedFramePayloadLength + 1).bigEndian
         var oversizedHeader = Data()
         withUnsafeBytes(of: oversizedLength) { oversizedHeader.append(contentsOf: $0) }
 
@@ -71,8 +71,9 @@ struct ProtocolFramingTests {
 
     @Test
     func unsupportedVersionAndMalformedEnvelopeAreRejected() throws {
+        let unsupportedVersionJSON = Data(#"{"messageType":"test","protocolVersion":2}"#.utf8)
         #expect(throws: ProtocolFramingError.unsupportedVersion(2)) {
-            _ = try ProtocolEnvelope(protocolVersion: 2, messageType: "test")
+            _ = try ProtocolFrameCodec.decode(unsupportedVersionJSON)
         }
 
         let malformed = Data("not-json".utf8)
@@ -91,11 +92,41 @@ struct ProtocolFramingTests {
             _ = try ProtocolEnvelope(messageType: "héllo")
         }
 
+        #expect(throws: ProtocolFramingError.messageTypeTooLong) {
+            _ = try ProtocolEnvelope(messageType: String(repeating: "a", count: 65))
+        }
+
         #expect(throws: ProtocolFramingError.payloadTooLarge(65_537)) {
             _ = try ProtocolEnvelope(
                 messageType: "large",
-                payload: Data(repeating: 0, count: ProtocolEnvelope.maximumPayloadLength + 1)
+                payload: Data(repeating: 0, count: ProtocolEnvelope.maximumRawPayloadLength + 1)
             )
+        }
+    }
+
+    @Test
+    func encodedFrameLimitIsAuthoritativeForRawDataPayloads() throws {
+        let nearLimit = try ProtocolEnvelope(
+            messageType: "near-limit",
+            payload: Data(repeating: 65, count: 49_000)
+        )
+        let nearLimitFrame = try ProtocolFrameCodec.encode(nearLimit)
+        let encodedLength = nearLimitFrame.count - ProtocolFrameCodec.headerLength
+
+        #expect(encodedLength <= ProtocolFrameCodec.maximumEncodedFramePayloadLength)
+        #expect(encodedLength > ProtocolFrameCodec.maximumEncodedFramePayloadLength - 512)
+
+        let rawPayloadWithinRawLimit = try ProtocolEnvelope(
+            messageType: "encoded-too-large",
+            payload: Data(repeating: 65, count: 49_103)
+        )
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.outputFormatting = [.sortedKeys]
+        let encodedEnvelope = try jsonEncoder.encode(rawPayloadWithinRawLimit)
+
+        #expect(encodedEnvelope.count > ProtocolFrameCodec.maximumEncodedFramePayloadLength)
+        #expect(throws: ProtocolFramingError.payloadTooLarge(encodedEnvelope.count)) {
+            _ = try ProtocolFrameCodec.encode(rawPayloadWithinRawLimit)
         }
     }
 
@@ -124,5 +155,31 @@ struct ProtocolFramingTests {
         decoder.reset()
 
         #expect(try decoder.append(goodFrame) == [envelope])
+    }
+
+    @Test
+    func partialHeaderIsTruncatedOnlyWhenStreamFinishes() throws {
+        var decoder = ProtocolFrameDecoder()
+
+        #expect(try decoder.append(Data([0, 0])).isEmpty)
+        #expect(throws: ProtocolFramingError.truncatedFrame(expected: 4, received: 2)) {
+            try decoder.finish()
+        }
+    }
+
+    @Test
+    func decoderRemainsFailedUntilResetAfterAnError() throws {
+        var decoder = ProtocolFrameDecoder()
+
+        #expect(throws: ProtocolFramingError.invalidFrameLength(0)) {
+            try decoder.append(Data([0, 0, 0, 0]))
+        }
+        #expect(throws: ProtocolFramingError.decoderFailed) {
+            try decoder.append(Data())
+        }
+
+        decoder.reset()
+        let envelope = try ProtocolEnvelope(messageType: "after-reset")
+        #expect(try decoder.append(ProtocolFrameCodec.encode(envelope)) == [envelope])
     }
 }

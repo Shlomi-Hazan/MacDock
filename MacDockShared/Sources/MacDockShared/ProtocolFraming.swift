@@ -15,7 +15,7 @@ public enum ProtocolFramingError: Error, Equatable, Sendable {
 
 public struct ProtocolEnvelope: Codable, Equatable, Sendable {
     public static let currentVersion: UInt16 = 1
-    public static let maximumPayloadLength = 64 * 1024
+    public static let maximumRawPayloadLength = 64 * 1024
 
     public let protocolVersion: UInt16
     public let messageType: String
@@ -76,7 +76,7 @@ public struct ProtocolEnvelope: Codable, Equatable, Sendable {
         guard messageType.unicodeScalars.allSatisfy({ $0.value < 128 }) else {
             throw ProtocolFramingError.nonASCIIMessageType
         }
-        guard payload.count <= maximumPayloadLength else {
+        guard payload.count <= maximumRawPayloadLength else {
             throw ProtocolFramingError.payloadTooLarge(payload.count)
         }
     }
@@ -84,14 +84,14 @@ public struct ProtocolEnvelope: Codable, Equatable, Sendable {
 
 public enum ProtocolFrameCodec {
     public static let headerLength = MemoryLayout<UInt32>.size
-    public static let maximumFramePayloadLength = ProtocolEnvelope.maximumPayloadLength
+    public static let maximumEncodedFramePayloadLength = 64 * 1024
 
     public static func encode(_ envelope: ProtocolEnvelope) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
 
         let encodedEnvelope = try encoder.encode(envelope)
-        guard encodedEnvelope.count <= maximumFramePayloadLength else {
+        guard encodedEnvelope.count <= maximumEncodedFramePayloadLength else {
             throw ProtocolFramingError.payloadTooLarge(encodedEnvelope.count)
         }
 
@@ -103,7 +103,7 @@ public enum ProtocolFrameCodec {
     }
 
     public static func decode(_ encodedEnvelope: Data) throws -> ProtocolEnvelope {
-        guard encodedEnvelope.count <= maximumFramePayloadLength else {
+        guard encodedEnvelope.count <= maximumEncodedFramePayloadLength else {
             throw ProtocolFramingError.oversizedFrame(UInt32(encodedEnvelope.count))
         }
 
@@ -144,7 +144,7 @@ public struct ProtocolFrameDecoder: Sendable {
                     failed = true
                     throw ProtocolFramingError.invalidFrameLength(declaredLength)
                 }
-                guard declaredLength <= UInt32(ProtocolFrameCodec.maximumFramePayloadLength) else {
+                guard declaredLength <= UInt32(ProtocolFrameCodec.maximumEncodedFramePayloadLength) else {
                     failed = true
                     throw ProtocolFramingError.oversizedFrame(declaredLength)
                 }
