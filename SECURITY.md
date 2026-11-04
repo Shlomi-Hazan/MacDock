@@ -19,4 +19,4 @@ Do not disclose a suspected vulnerability in a public issue. Use the repository'
 
 ## Scanner policy
 
-The bootstrap CI checks changed file names for common credential and signing-material extensions. This is a guardrail, not a complete content scanner. A dedicated scanner such as Gitleaks will be evaluated before application credentials, certificates, or production workflows are introduced. Any scanner added to CI must be pinned and reviewed as a supply-chain dependency.
+The Repository Integrity workflow checks changed file names for common credential and signing-material extensions. The Foundation Validation workflow also runs Gitleaks v2.3.9, pinned to an immutable commit, against repository history without uploading artifacts or commenting on pull requests. These checks are guardrails, not guarantees that every sensitive value will be detected. Scanner updates require review of the upstream action, commit pin, permissions, and false-positive behavior.
