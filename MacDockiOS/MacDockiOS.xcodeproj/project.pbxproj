@@ -1,0 +1,60 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C10000010000000000000001 /* MacDockiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000100000000000000001 /* MacDockiOSApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		C10000100000000000000001 /* MacDockiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDockiOSApp.swift; sourceTree = "<group>"; };
+		C10000100000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C10000100000000000000003 /* MacDockiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacDockiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10000200000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C10000300000000000000001 = {isa = PBXGroup; children = (C10000300000000000000002 /* Sources */, C10000300000000000000003 /* Resources */, C10000300000000000000004 /* Frameworks */, C10000300000000000000005 /* Products */); sourceTree = "<group>"; };
+		C10000300000000000000002 /* Sources */ = {isa = PBXGroup; children = (C10000100000000000000001 /* MacDockiOSApp.swift */); path = .; sourceTree = "<group>"; };
+		C10000300000000000000003 /* Resources */ = {isa = PBXGroup; children = (C10000100000000000000002 /* Info.plist */); path = .; sourceTree = "<group>"; };
+		C10000300000000000000004 /* Frameworks */ = {isa = PBXGroup; children = (); name = Frameworks; sourceTree = "<group>"; };
+		C10000300000000000000005 /* Products */ = {isa = PBXGroup; children = (C10000100000000000000003 /* MacDockiOS.app */); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C10000400000000000000001 /* MacDockiOS */ = {isa = PBXNativeTarget; buildConfigurationList = C10000700000000000000002 /* Build configuration list for PBXNativeTarget "MacDockiOS" */; buildPhases = (C10000200000000000000002 /* Sources */, C10000200000000000000001 /* Frameworks */, C10000200000000000000003 /* Resources */); buildRules = (); dependencies = (); name = MacDockiOS; productName = MacDockiOS; productReference = C10000100000000000000003 /* MacDockiOS.app */; productType = "com.apple.product-type.application"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C10000500000000000000001 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2630; TargetAttributes = {C10000400000000000000001 = {CreatedOnToolsVersion = 26.3; }; }; }; buildConfigurationList = C10000700000000000000001 /* Build configuration list for PBXProject "MacDockiOS" */; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = C10000300000000000000001; productRefGroup = C10000300000000000000005 /* Products */; projectDirPath = ""; projectRoot = ""; targets = (C10000400000000000000001 /* MacDockiOS */); };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C10000200000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C10000200000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C10000010000000000000001 /* MacDockiOSApp.swift in Sources */); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C10000600000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; INFOPLIST_FILE = Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.macdock.ios; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = 1; }; name = Debug; };
+		C10000600000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; INFOPLIST_FILE = Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.macdock.ios; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = 1; }; name = Release; };
+		C10000600000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+		C10000600000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C10000700000000000000001 /* Build configuration list for PBXProject "MacDockiOS" */ = {isa = XCConfigurationList; buildConfigurations = (C10000600000000000000003 /* Debug */, C10000600000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		C10000700000000000000002 /* Build configuration list for PBXNativeTarget "MacDockiOS" */ = {isa = XCConfigurationList; buildConfigurations = (C10000600000000000000001 /* Debug */, C10000600000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = C10000500000000000000001 /* Project object */;
+}

@@ -4,11 +4,30 @@ MacDock is an independent, native Apple-platform application that turns an iPhon
 
 ## Project status
 
-MacDock is in Stage 0: discovery and feasibility. No production application code exists yet.
+MacDock has completed Stage 0 with a maintainer-approved Conditional Go and is beginning Stage 1: architecture and foundation. The current production foundation contains only inert native application shells; networking, pairing, application inventory, Dock synchronization, launch, and activation are not implemented.
 
 The initial MVP targets one Mac and one iPhone. The interactive Dock is expected to operate while the iOS application is in the foreground. The first MVP focuses on securely pairing the devices, displaying a customizable set of Mac applications, and launching or activating those applications from the iPhone.
 
 Touchpad, keyboard, media controls, clipboard synchronization, and other advanced capabilities are intentionally out of scope for the initial MVP.
+
+## Local development
+
+The initial native foundation is organized as an Xcode workspace containing two independent application projects:
+
+- `MacDockMac/MacDockMac.xcodeproj` — macOS menu bar companion shell.
+- `MacDockiOS/MacDockiOS.xcodeproj` — foreground-only iOS SwiftUI shell.
+
+Open `MacDock.xcworkspace` in Xcode. For signing-safe command-line validation, use the project targets directly and disable signing for generic iOS builds when a local development team is not configured:
+
+```sh
+xcodebuild -workspace MacDock.xcworkspace -list
+xcodebuild -project MacDockMac/MacDockMac.xcodeproj -target MacDockMac -configuration Debug build
+xcodebuild -project MacDockiOS/MacDockiOS.xcodeproj -target MacDockiOS -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build
+```
+
+Development signing remains local. Do not commit Team IDs, provisioning profiles, certificates, or device identifiers.
+
+For graphical validation, select the `MacDockMac` scheme and `My Mac` in Xcode to confirm the menu bar shell appears, then use `Quit MacDock`. Select `MacDockiOS` with an available simulator or locally signed development device to confirm the placeholder foreground screen. These checks do not enable any production networking or control behavior.
 
 ## Development principles
 
