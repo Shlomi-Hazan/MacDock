@@ -80,13 +80,15 @@ Do not create separate networking, security, persistence, or domain packages unt
 
 ## Protocol boundary
 
-The Stage 1 protocol should begin with explicit, versioned models rather than a broad remote-control abstraction. A future framed message should carry at least:
+The Stage 1 protocol now begins with explicit, versioned Foundation-only models rather than a broad remote-control abstraction. `MacDockShared` implements a bounded four-byte big-endian length prefix and UTF-8 JSON envelope for deterministic, incremental framing. A framed message carries at least:
 
 - protocol version and message type;
 - session identifier and unique request identifier where applicable;
 - bounded payload and correlation information;
 - explicit response/outcome type;
-- freshness or sequence data selected by the reviewed security design.
+- freshness or sequence data selected by the reviewed security design (not implemented by the framing foundation).
+
+The current frame limit is 64 KiB for the encoded JSON envelope and is authoritative on the wire. The raw `Data` input guard is also bounded, but Base64 expansion means the full raw limit cannot fit in every encoded frame. This bounds shared-package buffering for control-plane foundation messages; icon transfer sizing and any production wire schema remain deferred. Framing errors fail the current decoder until an explicit reset. Parsing, version matching, and serialization do not establish authentication or authorization.
 
 The framing pattern demonstrated by the transport experiment may inform Stage 1 tests, but its test certificate and fingerprint-entry UX are not production pairing. The final cryptographic construction and transcript binding require a separate Stage 2 security review.
 
