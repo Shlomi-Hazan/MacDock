@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		C10000010000000000000001 /* MacDockiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000100000000000000001 /* MacDockiOSApp.swift */; };
+		C10000010000000000000004 /* BonjourDiscoveryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000100000000000000004 /* BonjourDiscoveryCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		C10000100000000000000001 /* MacDockiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDockiOSApp.swift; sourceTree = "<group>"; };
 		C10000100000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C10000100000000000000003 /* MacDockiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacDockiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000100000000000000004 /* BonjourDiscoveryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourDiscoveryCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -22,7 +24,7 @@
 
 /* Begin PBXGroup section */
 		C10000300000000000000001 = {isa = PBXGroup; children = (C10000300000000000000002 /* Sources */, C10000300000000000000003 /* Resources */, C10000300000000000000004 /* Frameworks */, C10000300000000000000005 /* Products */); sourceTree = "<group>"; };
-		C10000300000000000000002 /* Sources */ = {isa = PBXGroup; children = (C10000100000000000000001 /* MacDockiOSApp.swift */); path = .; sourceTree = "<group>"; };
+		C10000300000000000000002 /* Sources */ = {isa = PBXGroup; children = (C10000100000000000000001 /* MacDockiOSApp.swift */, C10000100000000000000004 /* BonjourDiscoveryCoordinator.swift */); path = .; sourceTree = "<group>"; };
 		C10000300000000000000003 /* Resources */ = {isa = PBXGroup; children = (C10000100000000000000002 /* Info.plist */); path = .; sourceTree = "<group>"; };
 		C10000300000000000000004 /* Frameworks */ = {isa = PBXGroup; children = (); name = Frameworks; sourceTree = "<group>"; };
 		C10000300000000000000005 /* Products */ = {isa = PBXGroup; children = (C10000100000000000000003 /* MacDockiOS.app */); name = Products; sourceTree = "<group>"; };
@@ -41,7 +43,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C10000200000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C10000010000000000000001 /* MacDockiOSApp.swift in Sources */); runOnlyForDeploymentPostprocessing = 0; };
+		C10000200000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C10000010000000000000001 /* MacDockiOSApp.swift in Sources */, C10000010000000000000004 /* BonjourDiscoveryCoordinator.swift in Sources */); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCRemoteSwiftPackageReference section */
