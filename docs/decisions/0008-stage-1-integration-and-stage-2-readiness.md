@@ -1,9 +1,10 @@
 # ADR 0008: Stage 1 Integration and Stage 2 Readiness
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-04
 - Issue: [#30](https://github.com/Shlomi-Hazan/MacDock/issues/30)
 - Decision: CONDITIONAL GO to enter Stage 2
+- Accepted by maintainer: 2026-11-04
 
 ## Context
 
@@ -11,7 +12,7 @@ Stage 1 established the native macOS and iOS targets, the Foundation-only shared
 
 ## Decision
 
-Recommend a **CONDITIONAL GO** for entering Stage 2 work. Stage 2 may add isolated discovery and transport foundations, but no transport-ready or TLS-ready state may grant application-control authorization.
+The maintainer accepts a **CONDITIONAL GO** for entering Stage 2 work. Stage 2 may add isolated discovery and transport foundations, but no transport-ready or TLS-ready state may grant application-control authorization.
 
 Before trusted sessions or application-control capabilities are enabled, Stage 2 must specify and review the pairing construction, mutual identity binding, two-sided confirmation, Keychain lifecycle, revocation and recovery, transcript/session binding, replay resistance, and authorization boundary.
 
@@ -27,7 +28,7 @@ ADR 0003 remains Proposed. This ADR does not select or accept its cryptographic 
 
 ## Consequences
 
-Stage 1 can be reviewed as a complete inert foundation, subject to maintainer acceptance. Stage 2 can proceed incrementally, but security review is a prerequisite for trusted sessions and Stage 3 control functionality. The Stage 1 milestone should remain open until the maintainer accepts this decision and the associated Issue #30 acceptance review.
+Stage 1 is accepted as a complete inert foundation. Stage 2 can proceed incrementally, but security review is a prerequisite for trusted sessions and Stage 3 control functionality. This acceptance does not accept ADR 0003, authorize trusted sessions, or authorize application-control functionality.
 
 ## Evidence
 
