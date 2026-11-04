@@ -11,3 +11,9 @@ The envelope contains a protocol version, an ASCII message-type category, an opt
 `ProtocolFrameDecoder` accepts fragmented input and multiple frames per input. Empty or oversized declarations, malformed envelopes, unsupported versions, and truncated streams produce stable errors. A decoding error fails the current decoder; callers may explicitly call `reset()` to start a new framing session.
 
 This package provides structure and bounds only. Parsing is not authentication or authorization, and it does not create a transport, pairing flow, session identity, replay protection, or remote-control endpoint.
+
+## Connection lifecycle foundation
+
+`ConnectionLifecycleState` and `ConnectionLifecycleReducer` model discovery and transport readiness without performing network work. Attempts carry a monotonically increasing generation so callbacks from cancelled or superseded attempts are ignored. If allocating another generation after `UInt64.max` would be required, the reducer enters `generationExhausted` and fails closed; it never wraps or reuses a generation, and `reset` cannot bypass exhaustion. The reducer models transport connection only; it has no authenticated, paired, trusted, or authorized state.
+
+Scheduling, timeouts, Network.framework callbacks, retry policy, and UI side effects remain outside the reducer. A timeout becomes a recoverable failure, cancellation becomes a terminal current-attempt state until an explicit retry or reset, and reset returns to `disconnected` without reusing the previous generation. A `candidateDiscovered` event currently acknowledges the lifecycle event without storing candidate details or changing phase; platform discovery and candidate selection remain outside this foundation.

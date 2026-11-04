@@ -80,7 +80,7 @@ Do not create separate networking, security, persistence, or domain packages unt
 
 ## Protocol boundary
 
-The Stage 1 protocol now begins with explicit, versioned Foundation-only models rather than a broad remote-control abstraction. `MacDockShared` implements a bounded four-byte big-endian length prefix and UTF-8 JSON envelope for deterministic, incremental framing. A framed message carries at least:
+The Stage 1 protocol now begins with explicit, versioned Foundation-only models rather than a broad remote-control abstraction. `MacDockShared` implements a bounded four-byte big-endian length prefix and UTF-8 JSON envelope for deterministic, incremental framing, plus a pure connection lifecycle reducer. A framed message carries at least:
 
 - protocol version and message type;
 - session identifier and unique request identifier where applicable;
@@ -89,6 +89,8 @@ The Stage 1 protocol now begins with explicit, versioned Foundation-only models 
 - freshness or sequence data selected by the reviewed security design (not implemented by the framing foundation).
 
 The current frame limit is 64 KiB for the encoded JSON envelope and is authoritative on the wire. The raw `Data` input guard is also bounded, but Base64 expansion means the full raw limit cannot fit in every encoded frame. This bounds shared-package buffering for control-plane foundation messages; icon transfer sizing and any production wire schema remain deferred. Framing errors fail the current decoder until an explicit reset. Parsing, version matching, and serialization do not establish authentication or authorization.
+
+The lifecycle reducer models only discovery and transport phases. Attempt generations reject stale callbacks; exhaustion is modeled explicitly and fails closed rather than reusing a generation. Scheduling and Network.framework integration remain platform-specific future work. The current `candidateDiscovered` event acknowledges an event without storing candidate details or changing phase; discovery and candidate selection remain platform responsibilities. Transport readiness is not authentication, pairing, trust, or authorization; no trusted state exists in the foundation model.
 
 The framing pattern demonstrated by the transport experiment may inform Stage 1 tests, but its test certificate and fingerprint-entry UX are not production pairing. The final cryptographic construction and transcript binding require a separate Stage 2 security review.
 
