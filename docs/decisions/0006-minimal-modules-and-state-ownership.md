@@ -12,6 +12,8 @@ MacDock has two platform applications with different frameworks and permissions.
 
 Stage 1 begins with two native app targets and, when needed, one Foundation-only shared Swift package. Platform services remain in their owning targets. The iPhone is the single writer for Dock membership/order in the one-phone MVP; the Mac is authoritative for application inventory and OS operation outcomes. Connection state is ephemeral, while trust material is stored in platform secure storage.
 
+Dock synchronization is bounded replication, not shared authority. Updates carry an iPhone-owned revision. On reconnect, the Mac reports its last synchronized revision and the iPhone resends the current configuration when needed. A stale Mac revision cannot overwrite a newer iPhone revision. Temporary inventory failure marks selected items unavailable without deleting them, and an ambiguous revision conflict requires deterministic recovery rather than a silent merge.
+
 ## Consequences
 
 - AppKit/UIKit imports cannot leak into shared models.

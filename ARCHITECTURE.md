@@ -157,14 +157,28 @@ The initial persistence API is intentionally deferred to Stage 1. A small Codabl
 
 ### Recommended order
 
+The following phases are deliberately separated. They are guidance for later work, not additional Stage 1 acceptance criteria.
+
+#### Stage 1 — Architecture and foundation
+
 1. Confirm minimum macOS/iOS versions, distribution assumptions, and target structure.
 2. Create the two app targets and the smallest Foundation-only shared package.
 3. Define versioned models, bounded framing, serialization, and pure state machines with tests.
 4. Add Mac menu bar lifecycle and iOS foreground lifecycle shells.
-5. Add discovery and connection lifecycle without trusted control.
-6. Add pairing only after the Stage 2 security design is reviewed and test vectors exist.
-7. Add inventory and Dock synchronization with offline-safe persistence.
-8. Add launch/activation request handling behind authenticated authorization.
+5. Establish CI build/test seams and protocol fixture coverage without enabling remote application control.
+
+Stage 1 must stop short of trusted pairing, production control commands, and a final cryptographic protocol.
+
+#### Stage 2 — Connection and pairing
+
+6. Add Bonjour discovery and connection lifecycle behind the Stage 1 interfaces.
+7. Specify, review, and test the authenticated pairing construction, key storage, revocation, and bounded reconnection behavior.
+8. Enable authenticated sessions only after the security gates and test vectors pass.
+
+#### Stage 3 — Core Dock MVP
+
+9. Add revisioned Mac application inventory, normalized icons, and iPhone Dock persistence/synchronization.
+10. Add launch and activation requests behind authenticated authorization, preserving observed-outcome semantics.
 
 ### Component blueprint
 
