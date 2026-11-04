@@ -1,4 +1,5 @@
 import SwiftUI
+import MacDockShared
 
 @main
 struct MacDockMacApp: App {
@@ -6,6 +7,9 @@ struct MacDockMacApp: App {
         MenuBarExtra("MacDock", systemImage: "dock.rectangle") {
             Text("MacDock Foundation")
                 .font(.headline)
+
+            Text(MacDockFoundationInfo.current.stageLabel)
+                .foregroundStyle(.secondary)
 
             Text("Companion shell ready")
                 .foregroundStyle(.secondary)

@@ -1,4 +1,5 @@
 import SwiftUI
+import MacDockShared
 
 @main
 struct MacDockiOSApp: App {
@@ -12,6 +13,9 @@ struct MacDockiOSApp: App {
                 Text("MacDock")
                     .font(.title)
                     .fontWeight(.semibold)
+
+                Text(MacDockFoundationInfo.current.stageLabel)
+                    .foregroundStyle(.secondary)
 
                 Text("Foreground foundation shell")
                     .foregroundStyle(.secondary)
