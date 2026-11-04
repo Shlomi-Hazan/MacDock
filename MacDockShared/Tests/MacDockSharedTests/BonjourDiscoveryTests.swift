@@ -47,8 +47,8 @@ struct BonjourDiscoveryTests {
 
     @Test
     func candidateMetadataIsBounded() {
-        let oversized = String(repeating: "x", count: BonjourCandidate.maximumFieldLength + 1)
-        #expect(BonjourCandidate(id: oversized, displayName: "MacDock", serviceType: "_macdock._tcp", domain: "local.") == nil)
+        let oversizedField = String(repeating: "x", count: BonjourCandidate.maximumFieldLength + 1)
+        #expect(BonjourCandidate(id: "candidate", displayName: oversizedField, serviceType: "_macdock._tcp", domain: "local.") == nil)
 
         let oversizedIdentifier = String(repeating: "x", count: BonjourCandidate.maximumIdentifierLength + 1)
         #expect(BonjourCandidate(id: oversizedIdentifier, displayName: "MacDock", serviceType: "_macdock._tcp", domain: "local.") == nil)
