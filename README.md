@@ -4,7 +4,7 @@ MacDock is an independent, native Apple-platform application that turns an iPhon
 
 ## Project status
 
-MacDock has completed Stage 0 with a maintainer-approved Conditional Go and is beginning Stage 1: architecture and foundation. The current production foundation contains only inert native application shells; networking, pairing, application inventory, Dock synchronization, launch, and activation are not implemented.
+MacDock has completed Stage 0 with a maintainer-approved Conditional Go. Stage 1 foundation implementation is complete and under acceptance review; the current production foundation contains only inert native application shells, shared pure models, bounded framing, lifecycle state models, and CI. Networking, pairing, application inventory, Dock synchronization, launch, and activation are not implemented.
 
 The shared foundation package is located at `MacDockShared/`. It contains only Foundation-compatible models and pure logic shared by the native targets. Run its tests with:
 

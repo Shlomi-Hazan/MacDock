@@ -1,6 +1,6 @@
 # MacDock Technical Architecture
 
-- Status: Stage 0 synthesis; proposed Stage 1 blueprint
+- Status: Stage 1 foundation implemented; Stage 2 readiness under review
 - Issue: [#9](https://github.com/Shlomi-Hazan/MacDock/issues/9)
 - Scope: one Mac companion, one foreground iPhone client, local-first MVP
 - Last reviewed: 2026-11-04
