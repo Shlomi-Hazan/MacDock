@@ -55,6 +55,15 @@ The following checks are prepared for maintainer execution and are not claimed a
 
 These checks validate presentation of the application lifecycle only. They do not validate network connection survival, background execution, pairing, Keep Screen Awake, or any application-control behavior.
 
+### Maintainer-reported Issue #28 observations
+
+The maintainer later completed the graphical checks above. These are manual observations, not tool-executed tests:
+
+- macOS: `MacDockMac` launched, the menu bar item appeared, the foundation status remained visible, and `Quit MacDock` terminated the application.
+- iOS: `MacDockiOS` launched, `Lifecycle: Active` appeared, returning from the Home Screen restored `Lifecycle: Active`, and no visible runtime error was reported.
+
+These observations do not demonstrate background execution, network connection survival, pairing, Keep Screen Awake behavior, or any production control capability.
+
 ## Signing and privacy
 
 Development signing remains local. The repository contains no Team ID, provisioning profile, certificate, device identifier, credential, or private path. Xcode-generated local signing changes must not be committed.
