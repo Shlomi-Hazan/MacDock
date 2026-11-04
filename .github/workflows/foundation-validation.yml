@@ -1,0 +1,104 @@
+name: Foundation Validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-package-tests:
+    name: swift-package-tests
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Report toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Run MacDockShared tests
+        run: swift test --package-path MacDockShared
+
+  native-builds:
+    name: native-build-${{ matrix.name }}
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-debug
+            scheme: MacDockMac
+            configuration: Debug
+            destination: generic/platform=macOS
+          - name: macos-release
+            scheme: MacDockMac
+            configuration: Release
+            destination: generic/platform=macOS
+          - name: ios-simulator-debug
+            scheme: MacDockiOS
+            configuration: Debug
+            destination: generic/platform=iOS Simulator
+          - name: ios-simulator-release
+            scheme: MacDockiOS
+            configuration: Release
+            destination: generic/platform=iOS Simulator
+          - name: ios-device-debug
+            scheme: MacDockiOS
+            configuration: Debug
+            destination: generic/platform=iOS
+          - name: ios-device-release
+            scheme: MacDockiOS
+            configuration: Release
+            destination: generic/platform=iOS
+    steps:
+      - name: Check out repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Report Xcode toolchain
+        run: xcodebuild -version
+
+      - name: Build native target without signing
+        run: >-
+          xcodebuild
+          -workspace MacDock.xcworkspace
+          -scheme "${{ matrix.scheme }}"
+          -configuration "${{ matrix.configuration }}"
+          -destination "${{ matrix.destination }}"
+          -derivedDataPath "$RUNNER_TEMP/macdock-${{ matrix.name }}"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository history
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Scan repository with Gitleaks
+        # gitleaks-action v2.3.9
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+          GITLEAKS_ENABLE_SUMMARY: "true"

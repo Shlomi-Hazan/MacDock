@@ -35,6 +35,18 @@ Development signing remains local. Do not commit Team IDs, provisioning profiles
 
 For graphical validation, select the `MacDockMac` scheme and `My Mac` in Xcode to confirm the menu bar shell appears, then use `Quit MacDock`. Select `MacDockiOS` with an available simulator or locally signed development device to confirm the placeholder screen and its scene lifecycle status. These checks do not enable any production networking, background execution, or control behavior.
 
+## Continuous integration
+
+Pull requests and pushes to `main` run the following validation:
+
+- `Repository Integrity` checks the change range, required foundation files, and sensitive file names.
+- `Foundation Validation / swift-package-tests` runs the complete `MacDockShared` test suite on a hosted macOS runner.
+- `Foundation Validation / native-build-*` builds macOS Debug/Release and iOS Simulator/generic-device Debug/Release targets with signing disabled.
+- `Foundation Validation / secret-scan` runs the pinned Gitleaks Action without PR comments or uploaded artifacts.
+
+CI compilation does not prove physical-device installation or runtime behavior. Use the local commands above and the manual validation plans under `docs/testing/` for those checks. The hosted workflow reports its Xcode and Swift toolchain versions so runner updates remain visible.
+Action dependencies are pinned to reviewed immutable commit SHAs; upgrades require release/tag verification and a review of permissions and behavior.
+
 ## Development principles
 
 - Native Swift and SwiftUI development.
