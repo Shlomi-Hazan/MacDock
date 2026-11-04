@@ -16,12 +16,14 @@ public enum ConnectionLifecyclePhase: Equatable, Sendable {
     case reconnecting
     case failed
     case cancelled
+    case generationExhausted
 }
 
 public enum ConnectionFailureReason: Equatable, Sendable {
     case discoveryUnavailable
     case transportUnavailable
     case timeout
+    case generationExhausted
 }
 
 public struct ConnectionLifecycleState: Equatable, Sendable {
@@ -37,7 +39,7 @@ public struct ConnectionLifecycleState: Equatable, Sendable {
         nextAttemptGeneration = 0
     }
 
-    fileprivate init(
+    internal init(
         phase: ConnectionLifecyclePhase,
         attempt: ConnectionAttempt?,
         failure: ConnectionFailureReason?,
@@ -145,6 +147,14 @@ public enum ConnectionLifecycleReducer {
             return state.with(phase: .cancelled, failure: nil)
 
         case .reset:
+            if state.phase == .generationExhausted || state.nextAttemptGeneration == .max {
+                return ConnectionLifecycleState(
+                    phase: .generationExhausted,
+                    attempt: nil,
+                    failure: .generationExhausted,
+                    nextAttemptGeneration: .max
+                )
+            }
             return ConnectionLifecycleState(
                 phase: .disconnected,
                 attempt: nil,
@@ -158,9 +168,16 @@ public enum ConnectionLifecycleReducer {
         from state: ConnectionLifecycleState,
         phase: ConnectionLifecyclePhase
     ) -> ConnectionLifecycleState {
-        let nextGeneration = state.nextAttemptGeneration == .max
-            ? 1
-            : state.nextAttemptGeneration + 1
+        guard state.nextAttemptGeneration < .max else {
+            return ConnectionLifecycleState(
+                phase: .generationExhausted,
+                attempt: nil,
+                failure: .generationExhausted,
+                nextAttemptGeneration: .max
+            )
+        }
+
+        let nextGeneration = state.nextAttemptGeneration + 1
         let attempt = ConnectionAttempt(generation: nextGeneration)
 
         return ConnectionLifecycleState(

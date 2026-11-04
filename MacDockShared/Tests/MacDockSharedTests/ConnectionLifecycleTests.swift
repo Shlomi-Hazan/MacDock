@@ -201,6 +201,32 @@ struct ConnectionLifecycleTests {
         #expect(reconnecting.attempt == ConnectionAttempt(generation: 2))
     }
 
+    @Test
+    func generationOverflowFailsClosedAndCannotBeBypassedByReset() {
+        let exhaustedInput = ConnectionLifecycleState(
+            phase: .failed,
+            attempt: ConnectionAttempt(generation: .max),
+            failure: .timeout,
+            nextAttemptGeneration: .max
+        )
+
+        let exhausted = ConnectionLifecycleReducer.reduce(exhaustedInput, .retryRequested)
+        #expect(exhausted.phase == .generationExhausted)
+        #expect(exhausted.failure == .generationExhausted)
+        #expect(exhausted.attempt == nil)
+        #expect(exhausted.nextAttemptGeneration == .max)
+
+        let afterReset = ConnectionLifecycleReducer.reduce(exhausted, .reset)
+        #expect(afterReset == exhausted)
+        #expect(ConnectionLifecycleReducer.reduce(afterReset, .startDiscovery) == exhausted)
+        #expect(
+            ConnectionLifecycleReducer.reduce(
+                exhausted,
+                .transportConnected(ConnectionAttempt(generation: .max))
+            ) == exhausted
+        )
+    }
+
     private func connectedState() -> ConnectionLifecycleState {
         let connecting = reduce([.startDiscovery, .startConnection])
         return ConnectionLifecycleReducer.reduce(
