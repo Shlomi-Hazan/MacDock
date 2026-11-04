@@ -32,13 +32,30 @@ Completion criteria:
 - CI build and test workflows.
 - Testing foundations.
 
+Stage 1 foundation implementation and acceptance review are complete. ADR 0008 records the maintainer-approved Conditional Go boundary. The Stage 1 milestone is closed; no trusted session or application-control capability was enabled.
+
 ## Stage 2 — Connection and pairing
 
-- Bonjour discovery.
-- Secure transport.
-- User-confirmed pairing.
-- Keychain-backed peer trust.
-- Reconnection and error handling.
+- [Stage 2 implementation plan](docs/milestones/stage-2-implementation-plan.md)
+- [Issue #38 — Pairing security specification](https://github.com/Shlomi-Hazan/MacDock/issues/38)
+- [Issue #39 — Bonjour candidate discovery](https://github.com/Shlomi-Hazan/MacDock/issues/39)
+- [Issue #40 — Network.framework transport](https://github.com/Shlomi-Hazan/MacDock/issues/40)
+- [Issue #41 — Device identity and secure storage](https://github.com/Shlomi-Hazan/MacDock/issues/41)
+- [Issue #42 — QR-first pairing](https://github.com/Shlomi-Hazan/MacDock/issues/42)
+- [Issue #43 — Authenticated sessions](https://github.com/Shlomi-Hazan/MacDock/issues/43)
+- [Issue #44 — Trust revocation and recovery](https://github.com/Shlomi-Hazan/MacDock/issues/44)
+- [Issue #45 — Reconnection and resynchronization](https://github.com/Shlomi-Hazan/MacDock/issues/45)
+- [Issue #46 — Stage 2 integration review](https://github.com/Shlomi-Hazan/MacDock/issues/46)
+
+Ordering and gates:
+
+1. Security specification and identity assumptions must be reviewed before pairing implementation.
+2. Discovery and transport may be implemented as non-authorizing foundations.
+3. Two-sided pairing, identity binding, Keychain trust, revocation, and recovery must pass security review before trusted sessions.
+4. Reconnection must preserve authorization and never replay non-idempotent commands automatically.
+5. Stage 2 completion requires physical-device evidence, negative security tests, and a separate acceptance review.
+
+Stage 2 does not authorize application inventory, Dock synchronization, launch, activation, cloud connectivity, or unsupported iOS background execution.
 
 ## Stage 3 — Core Dock MVP
 
