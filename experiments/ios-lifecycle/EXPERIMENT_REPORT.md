@@ -1,7 +1,7 @@
 # Experiment Report: iOS Lifecycle and Keep Screen Awake
 
 - Issue: [#8](https://github.com/Shlomi-Hazan/MacDock/issues/8)
-- Status: Stage 0 feasibility experiment; physical-device validation pending
+- Status: Stage 0 feasibility experiment; maintainer-reported physical-device evidence recorded
 - Scope: lifecycle state model and idle-timer policy only; no production Dock UI or networking
 
 ## Research question
@@ -49,6 +49,19 @@ Four Swift tests passed:
 
 These tests validate the pure state model only; they do not prove physical display behavior.
 
+### Verified by maintainer on a physical iPhone
+
+The following observations were reported by the maintainer after installing and running the experiment on a physical iPhone. They were not independently executed or observed by the tool environment:
+
+- With the default setting, the app showed `Foreground active`, preference `OFF`, and idle timer currently disabled `NO`.
+- Enabling the setting showed `Foreground active`, preference `ON`, and idle timer currently disabled `YES`.
+- Disabling the setting showed `Foreground active`, preference `OFF`, and idle timer currently disabled `NO`.
+- After enabling the setting, moving the app to the background, and returning to it, the preference remained `ON` and the applied idle-timer state returned to `YES`. No captured background-event screenshot is claimed.
+- With the setting enabled, manual device locking and unlocking remained possible, and the expected foreground `ON`/`YES` state was restored.
+- During a short foreground observation without screen interaction, the maintainer reported that the screen remained on. The exact duration was not recorded.
+
+These observations provide physical-device evidence for the opt-in toggle, foreground application, restoration after return to foreground, manual lock/unlock compatibility, and short screen-on behavior. They do not establish a measured duration or long-term reliability.
+
 ### Verified by compilation and bundle inspection
 
 The following passed with signing disabled:
@@ -78,27 +91,26 @@ Apple documents SwiftUI scene phases and UIKit lifecycle transitions, but backgr
 
 These platform facts support the foreground-only product boundary and the lifecycle-scoped policy. They do not establish physical screen-on duration, battery impact, thermal behavior, or continued network availability.
 
-### Not tested yet
+### Not tested or not measured
 
-- Installation and launch on the physical iPhone.
-- Actual screen remaining awake while the setting is ON.
-- Manual lock/unlock behavior with the setting ON.
-- Background, inactive, and rapid transition observations on the physical device.
-- Preference restoration after returning to foreground on physical hardware.
-- Battery or thermal measurements.
-- Network connection survival or suspension during backgrounding.
-- Unexpected process termination cleanup.
+- A controlled rapid-transition stress test.
+- Battery consumption or thermal measurements.
+- Network connection survival or suspension during backgrounding; this experiment contains no networking implementation.
+- Guaranteed cleanup after unexpected process termination.
+- A precise screen-on observation duration or long-term screen-on reliability.
+
+The physical-device observations above are maintainer-reported and are not independent tool verification. Background event capture was not provided, so the report does not claim a captured background event screenshot.
 
 ## Physical-device test plan
 
-After installing the signed experiment on the target iPhone:
+The following scenarios were used for physical validation; the results are recorded above:
 
-1. Launch with Keep Screen Awake OFF. Expected: lifecycle becomes `Foreground active`, preference OFF, idle timer currently disabled `NO`.
-2. Enable the toggle. Expected: preference ON and applied state `YES` while foreground active. Observe the screen for a short controlled period only; record the actual result.
-3. Disable the toggle. Expected: applied state returns to `NO` immediately while preference is OFF.
-4. Enable it again, send the app to background, and return to foreground. Expected: background/inactive events show applied state `NO`; on return, preference remains ON and applied state becomes `YES`.
-5. With the setting ON, manually lock and unlock the iPhone. Expected: manual locking remains possible; record actual lifecycle and applied-state events after unlock.
-6. Repeat foreground/background transitions rapidly. Expected: no stale event should leave the applied state inconsistent with the latest lifecycle and preference.
+1. Launch with Keep Screen Awake OFF.
+2. Enable and disable the toggle in the foreground.
+3. Enable it, send the app to background, and return to foreground.
+4. With the setting ON, manually lock and unlock the iPhone.
+5. Observe the screen for a short controlled period without interaction.
+6. A rapid-transition stress test remains untested.
 
 Do not run unattended battery-drain tests. Do not claim screen-on duration, thermal, or network results without observing them on the device.
 
@@ -112,7 +124,7 @@ The feature should not be used to imply background availability. The interactive
 
 Before production adoption:
 
-1. Physical iPhone tests confirm correct toggle and lifecycle behavior.
+1. Physical iPhone tests confirm the remaining lifecycle and UI cases, including rapid transitions where required.
 2. The idle timer is restored on disable and applicable inactive/background transitions.
 3. Returning foreground reapplies the explicit user preference without stale state.
 4. Manual device locking remains possible.
@@ -122,4 +134,4 @@ Before production adoption:
 
 ## Conclusion
 
-The experiment is directly buildable and the pure lifecycle policy is covered by automated tests. The target is prepared for physical installation, but Issue #8 remains Blocked until the maintainer performs the physical iPhone lifecycle and screen behavior tests. No production Dock UI, background execution, or networking implementation was added.
+The experiment is directly buildable, the pure lifecycle policy is covered by automated tests, and the maintainer-reported physical evidence confirms the core opt-in foreground behavior. Battery/thermal impact, background networking, rapid-transition stress, termination cleanup, and precise screen-on duration remain outside the verified evidence. No production Dock UI, background execution, or networking implementation was added.
