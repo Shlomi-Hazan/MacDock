@@ -47,9 +47,20 @@ The Mac creates a short-lived pairing session and displays a versioned QR record
 
 The iPhone scans the QR, shows the recognized Mac name and expiry, discovers candidate services, and checks that the selected transport peer matches the QR binding. Discovery must not create trust. The token is invalidated on completion, cancellation, mismatch, or expiry.
 
-### Short-code fallback
+### Short-code fallback (deferred)
 
-When scanning is unavailable, the Mac displays a short-lived code and the iPhone starts an explicitly user-initiated nearby pairing attempt. The code identifies a bounded session and is not a standalone password. Both devices still display a transcript-derived SAS and require explicit approval on both sides. Attempts are rate-limited and expire after repeated mismatch or timeout.
+The short-code fallback is **Deferred** for the MVP specification. A short code alone does not authenticate a device, establish a peer binding, or provide sufficient protection against an active man-in-the-middle attacker. SAS comparison alone is also not a substitute for authenticated identity.
+
+It may be reconsidered only after a reviewed construction demonstrates all of the following:
+
+- authenticated binding between the intended Mac and iPhone;
+- protection against active MITM, not merely accidental peer selection errors;
+- bounded lifetime, one-time use, and strict rate limiting;
+- resistance to offline guessing where the construction exposes a verifier or derives secrets from the code;
+- explicit confirmation on both devices over the same authenticated transcript;
+- clear cancellation, mismatch, retry, and failure behavior.
+
+Until those properties are demonstrated with a reviewed protocol and test vectors, the product should require QR-first pairing. The QR flow remains subject to the same independent construction review and must not treat the QR payload alone as complete authentication.
 
 ### Transcript and freshness proposal
 
@@ -99,7 +110,22 @@ Rules:
 - A changed peer key requires explicit unpair/re-pair or another separately reviewed replacement flow.
 - Cancellation and expiry delete ephemeral secrets and do not create trust.
 
-This is a safety invariant, not a claim that Stage 2 has a distributed transaction protocol. The implementation must choose an explicit pending/commit representation and test failure between each durable write.
+### Two-sided commit and crash consistency
+
+Pairing may be treated as committed on a device only when that device has durable evidence of all of the following:
+
+1. Its own local user approval for the exact transcript.
+2. The peer's approval, authenticated and cryptographically bound to the same canonical transcript, roles, peer identities, and session context.
+3. An authenticated final confirmation that is valid for the same pairing attempt and has not expired, been superseded, or already been consumed.
+4. A successful durable write of the committed peer binding and the state needed to prevent reuse of the bootstrap material.
+
+Local approval, an unauthenticated acknowledgment, or a peer claim that it has committed is insufficient. Neither side may authorize operational control until its own committed record satisfies these conditions.
+
+The implementation must use an explicit pending-versus-committed representation. Pending records may contain temporary transcript material and local approval, but they are never eligible for authorization. If a crash occurs after one-sided persistence, after sending a final message, or during the committed-record write, recovery must fail closed into `Pending`, `RecoveryRequired`, or `TrustChanged` as appropriate. It must not infer success from message delivery, retry the old final message as a new pairing, or silently promote a partial record.
+
+Duplicate or delayed final messages must be accepted only as idempotent references to the same still-valid attempt, and must never create a new trust record or alter a newer attempt. Reconnection during an inconsistent state requires an authenticated recovery exchange or explicit user cancellation and fresh pairing. Recovery after partial completion must discard or expire ephemeral material, preserve any existing committed trust, and require explicit user-visible action before retry.
+
+This is a safety invariant and recovery requirement, not a claim that Stage 2 has a distributed transaction protocol. The implementation must test failure between each durable write and message boundary, including crash, timeout, duplicate, delayed, and reordered final messages.
 
 ## Identity and key lifecycle
 
@@ -157,6 +183,20 @@ No arrow may be skipped. In particular:
 
 This review identifies defenses and residual risks; it does not prove cryptographic security. Relay resistance must not be overstated: an attacker may forward a valid exchange without changing the SAS.
 
+## Decision maturity and approval gates
+
+The project must distinguish these decisions explicitly:
+
+1. Security requirements and threat model reviewed.
+2. Exact pairing/handshake construction selected.
+3. Canonical transcript encoding and fixed test vectors validated.
+4. Cryptographic and platform security review completed.
+5. Maintainer explicitly accepts the selected construction.
+6. Implementation passes security and physical-device validation.
+7. Trusted-session and authorization gates are enabled only after the required conditions above are verified.
+
+Completion of Issue #38 may establish an accepted requirements baseline. It does not select a construction, accept ADR 0003, authorize production pairing, or permit trusted sessions. Issues #41–#43 must treat unresolved construction, transcript, and test-vector decisions as blocking dependencies rather than interpreting this document as blanket implementation authorization.
+
 ## Required implementation review gates
 
 Before accepting production pairing, the implementation PRs must provide:
@@ -181,7 +221,7 @@ These decisions remain explicitly open and must not be silently finalized by imp
 - Keychain accessibility, migration, and device replacement behavior;
 - whether any recovery beyond explicit unpair/re-pair is acceptable for the one-device MVP.
 
-ADR 0003 remains Proposed until these decisions are reviewed, test vectors exist, and the maintainer explicitly accepts the resulting design.
+ADR 0003 remains Proposed until these decisions are reviewed, test vectors exist, and the maintainer explicitly accepts the resulting design. No implementation issue may change that status implicitly.
 
 ## References
 
