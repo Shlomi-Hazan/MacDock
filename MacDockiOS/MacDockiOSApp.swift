@@ -39,6 +39,10 @@ private struct MacDockiOSRootView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
+            Text("Transport: \(transportLabel)")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
             if discovery.state.candidates.isEmpty {
                 Text("No untrusted Mac candidates visible")
                     .foregroundStyle(.secondary)
@@ -49,12 +53,20 @@ private struct MacDockiOSRootView: View {
                         Text("Untrusted candidate")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        Button("Send diagnostic hello") {
+                            discovery.connect(to: candidate)
+                        }
+                        .font(.caption)
                     }
                 }
             }
 
             Button("Retry discovery") { discovery.start() }
                 .disabled(scenePhase != .active)
+
+            if discovery.transportState.phase == .connecting || discovery.transportState.phase == .ready {
+                Button("Cancel diagnostic transport") { discovery.cancelTransport() }
+            }
         }
         .padding()
         .task {
@@ -86,6 +98,18 @@ private struct MacDockiOSRootView: View {
         case .ready: return "Ready"
         case .failed: return "Unavailable"
         case .cancelled: return "Stopped"
+        }
+    }
+
+    private var transportLabel: String {
+        switch discovery.transportState.phase {
+        case .idle: return "Idle"
+        case .connecting: return "Diagnostic connecting"
+        case .ready where discovery.transportState.diagnosticExchangeCompleted:
+            return "Diagnostic exchange complete (unverified)"
+        case .ready: return "Transport ready (unverified)"
+        case .failed: return "Unavailable"
+        case .cancelled: return "Cancelled"
         }
     }
 }
