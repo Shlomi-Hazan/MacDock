@@ -2,6 +2,7 @@ import SwiftUI
 import Network
 import MacDockShared
 
+@MainActor
 final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     private var listener: NWListener?
 
