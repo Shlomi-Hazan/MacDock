@@ -143,11 +143,11 @@ Candidate A therefore **requires further platform feasibility testing** before f
 
 ## Issue #52 isolated API-feasibility evidence
 
-The isolated probe in [`experiments/tls-channel-binding/`](../../experiments/tls-channel-binding/) compiled and ran on the development Mac using Xcode 26.3, Swift 6.2.4, and the installed macOS 26.2 SDK. It references the public `NWProtocolTLS.Metadata` and `sec_protocol_metadata_*` APIs, requires peer authentication in constructed options, and deliberately opens no network connection.
+The isolated probe in [`experiments/tls-channel-binding/`](../../experiments/tls-channel-binding/) compiled and ran its compile-only mode on the development Mac using Xcode 26.3, Swift 6.2.4, and the installed macOS 26.2 SDK. It references the public `NWProtocolTLS.Metadata` and `sec_protocol_metadata_*` APIs, uses an explicitly scoped trust callback for the runtime mode, and deliberately emits no secret material.
 
 The same source passed direct `swiftc -typecheck` against the installed iOS Simulator SDK for an arm64 iOS 17 simulator target. This is source-level compatibility evidence against a newer installed SDK, not runtime evidence on iOS 17. A SwiftPM cross-compile attempt was rejected because the invocation selected a macOS sysroot for an iPhone target; it does not establish an API limitation.
 
-No listener/client, temporary certificate, trust anchor, exporter comparison, or physical-device test was executed. Therefore same-session equality, cross-session inequality, label/context separation, rejection of an untrusted peer, reconnection behavior, and TLS lifecycle behavior remain unverified. The result supports continued targeted platform testing but does not support selecting or approving Candidate A.
+The runtime extension was then executed with temporary test-only identity material outside the repository. The listener reached `ready` and accepted a TCP connection, but client and server remained in `preparing` until the bounded timeout; no TLS `ready` state or exporter value was obtained. The run failed closed. No same-session equality, cross-session inequality, label/context separation, certificate rejection, reconnection behavior, or physical-device result is claimed. The result supports continued targeted platform testing but does not support selecting or approving Candidate A. A possible private-key authorization dependency remains unconfirmed and requires interactive maintainer validation.
 
 ## Candidate transcript format
 

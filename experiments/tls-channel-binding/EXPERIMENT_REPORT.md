@@ -32,6 +32,11 @@ The probe references only public APIs:
 - `sec_protocol_metadata_copy_peer_public_key`
 - `sec_protocol_metadata_access_peer_certificate_chain`
 - `sec_protocol_options_set_peer_authentication_required`
+- `sec_protocol_options_set_verify_block`
+- `sec_trust_copy_ref`
+- `SecTrustSetAnchorCertificates`
+- `SecTrustSetAnchorCertificatesOnly`
+- `SecTrustEvaluateWithError`
 
 Apple documents `create_secret` and `create_secret_with_context` as deriving an exported secret from TLS protocol metadata using a label, context, and requested length. Apple also documents peer public-key and certificate-chain access through the same metadata surface. These APIs are exporter-like and promising for a channel-binding design, but MacDock has not yet validated their semantics across physical endpoints or OS versions.
 
@@ -54,6 +59,8 @@ References:
 5. Requires peer authentication in the constructed TLS options.
 
 The probe is annotated and reviewed as a macOS 14/iOS 17-compatible source boundary. It does not claim that every referenced symbol has identical runtime behavior across those OS versions.
+
+The `create_secret_with_context` result is an owned `dispatch_data_t` returned by a Create-rule API. The probe keeps it in memory, converts it only to an in-memory `Data` value for equality comparison, and never prints or persists the bytes. `sec_trust_copy_ref` returns a retained `SecTrustRef`; the probe consumes it with `takeRetainedValue()` and evaluates the explicitly scoped trust object.
 
 The executable intentionally does not open a listener or client connection. No certificate, private key, trust anchor, identity, or network endpoint is included. This keeps the experiment fail-closed and prevents a compile probe from being mistaken for a successful TLS exchange.
 
@@ -87,7 +94,11 @@ An attempted `swift build --triple arm64-apple-ios17.0` was rejected because thi
 
 ### Runtime
 
-No TLS listener/client runtime exchange was executed by this tool run. Consequently:
+The local runtime extension was built and started with temporary test-only material generated outside the repository. The listener reached `ready`, accepted a TCP connection, and both the client and server connection callbacks remained in `preparing` until the bounded 8-second timeout. No TLS `ready` state was observed, no exporter value was derived, and the run failed closed with `runtime exchange failed: no verified exporter result`.
+
+This is a blocked runtime attempt, not a successful handshake. The exact cause was not established from the available state callbacks. A likely environment dependency requiring maintainer follow-up is authorization to use the imported private key for TLS signing, consistent with the Keychain prompt observed in the earlier transport experiment; this remains a hypothesis until the same command is run in an interactive normal macOS session and the prompt/result is observed.
+
+Consequently:
 
 - Same-session exporter equality: **not demonstrated**.
 - Cross-session inequality: **not demonstrated**.
@@ -114,6 +125,17 @@ Before Candidate A can proceed to formal specification, a follow-up isolated tar
 
 The test must not use real MacDock identity material, persist trust, or expose a command endpoint.
 
+The current local runtime command is:
+
+```sh
+swift run TLSChannelBindingProbe --runtime \
+  --p12 /private/tmp/<temporary-directory>/server.p12 \
+  --password-file /private/tmp/<temporary-directory>/password.txt \
+  --ca-cert /private/tmp/<temporary-directory>/server.der
+```
+
+The temporary PKCS#12 identity and DER trust anchor must be generated outside Git, used only for the process, and removed after testing. If macOS presents a Keychain authorization prompt for the imported private key, the maintainer must authorize only this temporary experiment and record the observed result. No system-wide trust anchor or unrelated Keychain item should be changed.
+
 ## Security interpretation
 
 Even if a future runtime test produces equal values, that result would establish only a property of the same TLS session. It would not authenticate a MacDock device by itself, complete QR pairing, prove authorization, or replace identity signatures, SAS, two-sided confirmation, durable trust, revocation, and recovery.
@@ -122,4 +144,4 @@ The future design must still address wrong-peer verification, channel substituti
 
 ## Conclusion
 
-**Candidate A feasibility is partially supported by API compilation, but physical and targeted runtime validation is outstanding.** Public APIs appear to expose the required categories of TLS metadata, including exporter-like secrets and peer material. The repository has not yet demonstrated matching endpoint values, cross-session separation, or compatibility on macOS 14 and iOS 17 runtimes.
+**Candidate A runtime feasibility is currently inconclusive and requires further fail-closed platform testing.** Public APIs appear to expose the required categories of TLS metadata, including exporter-like secrets and peer material, and the source compiles for the installed macOS and iOS SDKs. The local runtime attempt did not reach TLS `ready`; matching endpoint values, cross-session separation, certificate rejection, and compatibility on macOS 14 and iOS 17 runtimes remain unverified.
