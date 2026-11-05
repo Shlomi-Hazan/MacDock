@@ -53,6 +53,7 @@ final class ChannelBindingClientModel: ObservableObject {
             sec_protocol_options_set_tls_server_name(options.securityProtocolOptions, name)
         }
         sec_protocol_options_set_verify_block(options.securityProtocolOptions, { [weak self] _, trust, complete in
+            self?.logger.info("TLS verification callback invoked")
             let trustReference = sec_trust_copy_ref(trust).takeRetainedValue()
             let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
             let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)

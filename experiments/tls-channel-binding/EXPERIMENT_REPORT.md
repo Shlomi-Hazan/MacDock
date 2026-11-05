@@ -226,6 +226,12 @@ The maintainer performed one clean physical Mac-to-iPhone attempt on an iPhone 1
 
 The iOS client now keeps one attempt generation, rejects concurrent starts, preserves the first terminal failure or timeout, cancels its timeout task after terminal completion, ignores stale callbacks, logs non-sensitive connection and verification diagnostics, and checks all `SecTrust` configuration status values before completing verification. The Mac listener retains each accepted connection in a per-connection session, prevents duplicate receive setup, applies a bounded idle timeout, and performs deterministic cleanup. These changes improve diagnosis and lifecycle correctness but do not claim a successful physical TLS handshake.
 
+### Follow-up physical handshake stall
+
+After the Start/Cancel controls were separated, the maintainer repeated one clean attempt. The iPhone logged `starting transport attempt`, `connection state: preparing`, and `transport timeout`; no TLS verification callback, TLS-ready state, or exporter comparison was observed. The Mac listener logged `listener state: ready`, `listener accepted connection`, `server connection state: preparing`, followed by POSIX error 60 (`Operation timed out`). The earlier automatic-cancellation symptom was not reproduced. The post-timeout Network.framework metadata warning was recorded as a consequence of the unconnected state, not as a root-cause classification.
+
+The supplied temporary certificate was inspected and contained an IP SAN for `192.168.1.200`, `serverAuth`, and digital-signature/key-encipherment usage. This rules out a missing IP SAN as an explanation, but does not establish that an IP literal supplied as both `NWEndpoint.Host` and TLS server name behaves as required on iOS. Remaining hypotheses include IP-literal SNI/policy behavior, iOS-specific TLS negotiation or trust handling, and an interface-specific listener path. The next discriminating test is a fresh temporary certificate with a DNS SAN matching the Mac's mDNS hostname (for example, `MacName.local`), with that same hostname used for both the iOS host and TLS server name; verification must remain scoped to the supplied certificate and must not be disabled.
+
 ## Security interpretation
 
 Even if a future runtime test produces equal values, that result would establish only a property of the same TLS session. It would not authenticate a MacDock device by itself, complete QR pairing, prove authorization, or replace identity signatures, SAS, two-sided confirmation, durable trust, revocation, and recovery.

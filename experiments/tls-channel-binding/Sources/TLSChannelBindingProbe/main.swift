@@ -348,9 +348,15 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
         print("listener accepted connection")
         connection.stateUpdateHandler = { state in
             print("server connection state: \(state)")
-            guard case .ready = state, acceptedSession.beginExchange(),
-                  let metadata = metadata(for: connection),
-                  let exporter = TLSChannelBindingProbe.deriveExporterLikeValue(from: metadata) else { return }
+            guard case .ready = state else { return }
+            guard acceptedSession.beginExchange() else { return }
+            print("server TLS ready; retrieving connection metadata")
+            guard let metadata = metadata(for: connection),
+                  let exporter = TLSChannelBindingProbe.deriveExporterLikeValue(from: metadata) else {
+                acceptedSession.finish(reason: "server TLS metadata unavailable after ready")
+                return
+            }
+            print("server TLS metadata ready; diagnostic receive started")
             acceptedSession.scheduleTimeout(on: queue, after: 10)
             let hello = Data("MDCB".utf8)
             connection.receive(minimumIncompleteLength: hello.count, maximumLength: hello.count) { data, _, _, error in
