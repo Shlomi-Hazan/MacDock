@@ -139,7 +139,7 @@ The `create_secret` functions are exporter-like public APIs and are the stronges
 | Mutual TLS device credentials | Certificate issuance, trust-anchor distribution, rotation, revocation, and recovery | Public APIs support the mechanics, but lifecycle is heavy and unreviewed |
 | Alternative reviewed handshake such as a concrete Noise pattern | Reviewed implementation/library, identity binding, transcript vectors, and integration with Network.framework | Fallback if TLS binding cannot meet the required properties |
 
-Candidate A therefore **requires further platform feasibility testing** before formal construction specification. No API evidence currently justifies marking it blocked, but no evidence justifies treating it as ready for production implementation.
+Candidate A therefore has **local Mac-to-Mac runtime feasibility evidence**, but still requires cross-platform testing and formal construction specification before any production implementation. No evidence justifies treating it as approved for production pairing.
 
 ## Issue #52 isolated API-feasibility evidence
 
@@ -147,7 +147,9 @@ The isolated probe in [`experiments/tls-channel-binding/`](../../experiments/tls
 
 The same source passed direct `swiftc -typecheck` against the installed iOS Simulator SDK for an arm64 iOS 17 simulator target. This is source-level compatibility evidence against a newer installed SDK, not runtime evidence on iOS 17. A SwiftPM cross-compile attempt was rejected because the invocation selected a macOS sysroot for an iPhone target; it does not establish an API limitation.
 
-The runtime extension was then executed with temporary test-only identity material outside the repository. The listener reached `ready` and accepted a TCP connection, but client and server remained in `preparing` until the bounded timeout; no TLS `ready` state or exporter value was obtained. The run failed closed. No same-session equality, cross-session inequality, label/context separation, certificate rejection, reconnection behavior, or physical-device result is claimed. The result supports continued targeted platform testing but does not support selecting or approving Candidate A. A possible private-key authorization dependency remains unconfirmed and requires interactive maintainer validation.
+The runtime extension was first executed with a temporary self-signed server certificate containing SAN entries but no explicit `keyUsage` or `extendedKeyUsage=serverAuth`; both endpoints remained in `preparing`, the verification callback was not invoked, and the run failed closed. This reproduced in an interactive Terminal, with private-key lookup and signing capability reported as available, so the earlier Keychain-prompt hypothesis is not supported.
+
+The same experiment was then repeated with a temporary certificate explicitly containing `subjectAltName=DNS:localhost,IP:127.0.0.1`, `keyUsage=digitalSignature,keyEncipherment`, and `extendedKeyUsage=serverAuth`. The listener and both connections reached `ready`; scoped trust evaluation succeeded; same-session exporter values were equal; separate sessions, alternate labels, and alternate contexts produced different values. This is executed Mac-to-Mac feasibility evidence only. Certificate rejection, iOS runtime behavior, minimum-OS compatibility, physical-device behavior, and independent cryptographic review remain outstanding. Candidate A is therefore supported for continued formal specification and review, not approved for production pairing.
 
 ## Candidate transcript format
 

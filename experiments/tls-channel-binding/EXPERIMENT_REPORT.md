@@ -94,7 +94,7 @@ An attempted `swift build --triple arm64-apple-ios17.0` was rejected because thi
 
 ### Runtime
 
-The local runtime extension was built and started with temporary test-only material generated outside the repository. The listener reached `ready`, accepted a TCP connection, and both the client and server connection callbacks remained in `preparing` until the bounded 8-second timeout. No TLS `ready` state was observed, no exporter value was derived, and the run failed closed with `runtime exchange failed: no verified exporter result`.
+The first local runtime attempt used a temporary self-signed certificate with SAN entries but without explicit `keyUsage` and `extendedKeyUsage=serverAuth` extensions. The listener reached `ready` and accepted TCP, but both TLS connections remained `preparing` until the bounded 8-second timeout. The verification callback was not invoked and no exporter value was derived.
 
 This is a blocked runtime attempt, not a successful handshake. The diagnostic build reports listener readiness, accepted TCP connections, client/server state transitions, waiting/failure errors, whether the TLS verification callback ran, scoped trust-evaluation result codes, private-key lookup status, and the timeout phase. It never reports private-key material, passwords, certificate paths, trust objects, or exporter bytes.
 
@@ -111,15 +111,39 @@ runtime timeout phase: TLS ready/exporter completion; verification callback invo
 runtime exchange failed: no verified exporter result
 ```
 
-This evidence rejects a simple “PKCS#12 import returned no private key” explanation and shows that the client trust callback was not reached. It does not prove that Network.framework accepted the identity for server-side TLS signing, nor does it identify why TLS did not progress beyond TCP. The earlier Keychain authorization observation remains a possible environment dependency, but is not a confirmed root cause.
+This evidence rejects a simple “PKCS#12 import returned no private key” explanation and shows that the client trust callback was not reached. The interactive reproduction means the result was not caused by the Codex sandbox or a missing Keychain prompt. The earlier Keychain authorization hypothesis is not supported by this evidence.
 
-The temporary certificate fixture was also checked outside the repository: its certificate and private-key public moduli matched, it contained `localhost` and `127.0.0.1` subject-alternative names, it was within its validity period during the run, and OpenSSL reported it usable for SSL server purpose. This does not establish that Network.framework accepted the identity or that the certificate policy is sufficient for every supported OS.
+The temporary certificate fixture was checked outside the repository: its certificate and private-key public moduli matched, it contained `localhost` and `127.0.0.1` subject-alternative names, it was within its validity period during the run, and OpenSSL reported it usable for SSL server purpose. The missing explicit server-authentication extensions were the material difference in the corrected fixture.
 
-Consequently:
+The corrected temporary certificate explicitly contains:
 
-- Same-session exporter equality: **not demonstrated**.
-- Cross-session inequality: **not demonstrated**.
-- Different-label and different-context separation: **not demonstrated**.
+- `subjectAltName=DNS:localhost,IP:127.0.0.1`
+- `keyUsage=digitalSignature,keyEncipherment`
+- `extendedKeyUsage=serverAuth`
+
+With that fixture, the same runtime code completed the local TLS 1.3 exchange and invoked the scoped trust callback successfully. This verifies that the original fixture was unsuitable for this Network.framework server test; it does not isolate whether `keyUsage`, `extendedKeyUsage`, or their combination was required.
+
+The corrected fixture produced:
+
+```text
+TLS verification callback: invoked
+TLS verification result: success; anchorStatus=0; anchorOnlyStatus=0; policyStatus=0
+client connection state: ready
+server connection state: ready
+TLS 1.3 local handshake: succeeded
+same-session exporter equality: equal
+different-session exporter inequality: different
+different-label isolation: different
+different-context isolation: different
+peer identity: certificate verified against explicit process-scoped DER anchor
+authorization: not established
+```
+
+For the corrected local Mac-to-Mac run:
+
+- Same-session exporter equality: **demonstrated**.
+- Cross-session inequality: **demonstrated**.
+- Different-label and different-context separation: **demonstrated**.
 - Rejected peer-certificate behavior: **not demonstrated by this probe**.
 - Missing metadata and cancellation behavior: **not demonstrated**.
 
@@ -127,11 +151,11 @@ No physical-device result is claimed.
 
 ## Trust-anchor and verification handling
 
-No test certificate or private key is stored in this repository. The probe does not install a trust anchor, configure a verify callback, accept arbitrary certificates, or disable certificate validation. A future runtime experiment must use temporary generated test identities outside Git and an explicitly scoped, fail-closed trust-anchor policy. If that policy cannot be implemented without weakening TLS verification, the runtime experiment must stop.
+No test certificate or private key is stored in this repository. Runtime mode does not install a trust anchor; it accepts a temporary DER anchor supplied by the operator and configures a process-scoped verify callback with `SecTrustSetAnchorCertificatesOnly`. It never accepts arbitrary certificates or disables certificate validation. If the scoped policy cannot be evaluated successfully, the runtime experiment stops without producing exporter results.
 
 ## Required runtime experiment
 
-Before Candidate A can proceed to formal specification, a follow-up isolated target must:
+Before Candidate A can proceed to formal specification, a follow-up isolated target must still:
 
 1. Generate temporary test-only identities outside the repository.
 2. Configure normal TLS verification against an explicitly scoped test trust anchor.
@@ -163,4 +187,4 @@ The future design must still address wrong-peer verification, channel substituti
 
 ## Conclusion
 
-**Candidate A runtime feasibility is currently inconclusive and requires further fail-closed platform testing.** Public APIs appear to expose the required categories of TLS metadata, including exporter-like secrets and peer material, and the source compiles for the installed macOS and iOS SDKs. The local runtime attempt did not reach TLS `ready`; matching endpoint values, cross-session separation, certificate rejection, and compatibility on macOS 14 and iOS 17 runtimes remain unverified.
+**Candidate A local runtime feasibility is supported by executed Mac-to-Mac evidence, but cross-platform and security-design validation remain outstanding.** The corrected isolated fixture completed TLS 1.3, passed explicit scoped certificate verification, and produced matching same-session exporter values with different values across sessions, labels, and contexts. This does not establish device identity, pairing, authorization, mutual authentication, physical iPhone compatibility, macOS 14/iOS 17 runtime compatibility, or independent cryptographic approval.
