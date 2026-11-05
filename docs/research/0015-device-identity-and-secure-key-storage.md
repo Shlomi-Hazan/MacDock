@@ -4,15 +4,15 @@
 - Stage: Stage 2 — Connection & Pairing
 - Status: Proposed design; no production identity or persistent key implementation
 - Depends on: [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38)
-- Related: [ADR 0003](../decisions/0003-qr-first-pairing-and-peer-authentication.md), [ADR 0007](../decisions/0007-stage-0-feasibility-decision.md), [ADR 0008](../decisions/0008-stage-1-conditional-go.md)
+- Related: [ADR 0003](../decisions/0003-qr-first-pairing-and-peer-authentication.md), [ADR 0007](../decisions/0007-stage-0-feasibility-decision.md), [ADR 0008](../decisions/0008-stage-1-integration-and-stage-2-readiness.md)
 
 ## Executive summary
 
-MacDock needs a device-owned long-term identity before it can commit pairing trust. This document defines the boundary and failure behavior without selecting the final pairing construction, TLS identity binding, signing algorithm, transcript format, or authorization protocol.
+MacDock needs a device-owned long-term identity before it can commit pairing trust. This document is a design baseline only. It does not implement a Keychain adapter, generate or persist a production identity, or validate real Keychain behavior on macOS or iPhone. It defines the boundary and failure behavior without selecting the final pairing construction, TLS identity binding, signing algorithm, transcript format, or authorization protocol.
 
 The recommended direction is a platform-specific identity adapter backed by Keychain, with private material kept outside `MacDockShared`. A Secure Enclave-backed P-256 signing key is a candidate where the device supports it and the eventual reviewed protocol requires it. This is not an accepted cryptographic decision and does not authorize key generation in the application.
 
-No identity is generated as an app-startup side effect. No identity is exposed through Bonjour, the current diagnostic transport, logs, UI, repository files, or CI output.
+No identity is generated as an app-startup side effect. No identity is exposed through Bonjour, the current diagnostic transport, logs, UI, repository files, or CI output. The outstanding implementation work is tracked explicitly: platform adapters, secure key generation and retrieval, real macOS/iPhone Keychain validation, Secure Enclave compatibility checks, durable record handling, deterministic adapter tests, and physical-device validation.
 
 ## Evidence classification
 
