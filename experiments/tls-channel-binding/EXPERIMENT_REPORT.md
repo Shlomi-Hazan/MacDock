@@ -62,7 +62,7 @@ The probe is annotated and reviewed as a macOS 14/iOS 17-compatible source bound
 
 The `create_secret_with_context` result is an owned `dispatch_data_t` returned by a Create-rule API. The probe keeps it in memory, converts it only to an in-memory `Data` value for equality comparison, and never prints or persists the bytes. `sec_trust_copy_ref` returns a retained `SecTrustRef`; the probe consumes it with `takeRetainedValue()` and evaluates the explicitly scoped trust object.
 
-The executable intentionally does not open a listener or client connection. No certificate, private key, trust anchor, identity, or network endpoint is included. This keeps the experiment fail-closed and prevents a compile probe from being mistaken for a successful TLS exchange.
+Compile-only mode intentionally opens no listener or client connection. Runtime mode accepts only explicit temporary test files supplied by the operator; it does not include certificates, private keys, trust anchors, identities, or endpoints in the repository. This keeps the repository fail-closed and prevents a compile probe from being mistaken for a successful TLS exchange.
 
 ## Commands
 
@@ -96,7 +96,24 @@ An attempted `swift build --triple arm64-apple-ios17.0` was rejected because thi
 
 The local runtime extension was built and started with temporary test-only material generated outside the repository. The listener reached `ready`, accepted a TCP connection, and both the client and server connection callbacks remained in `preparing` until the bounded 8-second timeout. No TLS `ready` state was observed, no exporter value was derived, and the run failed closed with `runtime exchange failed: no verified exporter result`.
 
-This is a blocked runtime attempt, not a successful handshake. The exact cause was not established from the available state callbacks. A likely environment dependency requiring maintainer follow-up is authorization to use the imported private key for TLS signing, consistent with the Keychain prompt observed in the earlier transport experiment; this remains a hypothesis until the same command is run in an interactive normal macOS session and the prompt/result is observed.
+This is a blocked runtime attempt, not a successful handshake. The diagnostic build reports listener readiness, accepted TCP connections, client/server state transitions, waiting/failure errors, whether the TLS verification callback ran, scoped trust-evaluation result codes, private-key lookup status, and the timeout phase. It never reports private-key material, passwords, certificate paths, trust objects, or exporter bytes.
+
+Observed diagnostic output included:
+
+```text
+identity private-key lookup status: 0
+identity private-key signing capability: available
+listener state: ready
+client connection state: preparing
+listener accepted connection
+server connection state: preparing
+runtime timeout phase: TLS ready/exporter completion; verification callback invoked=no
+runtime exchange failed: no verified exporter result
+```
+
+This evidence rejects a simple “PKCS#12 import returned no private key” explanation and shows that the client trust callback was not reached. It does not prove that Network.framework accepted the identity for server-side TLS signing, nor does it identify why TLS did not progress beyond TCP. The earlier Keychain authorization observation remains a possible environment dependency, but is not a confirmed root cause.
+
+The temporary certificate fixture was also checked outside the repository: its certificate and private-key public moduli matched, it contained `localhost` and `127.0.0.1` subject-alternative names, it was within its validity period during the run, and OpenSSL reported it usable for SSL server purpose. This does not establish that Network.framework accepted the identity or that the certificate policy is sufficient for every supported OS.
 
 Consequently:
 
@@ -135,6 +152,8 @@ swift run TLSChannelBindingProbe --runtime \
 ```
 
 The temporary PKCS#12 identity and DER trust anchor must be generated outside Git, used only for the process, and removed after testing. If macOS presents a Keychain authorization prompt for the imported private key, the maintainer must authorize only this temporary experiment and record the observed result. No system-wide trust anchor or unrelated Keychain item should be changed.
+
+The runtime currently performs server-certificate verification only: the client verifies the temporary server certificate against the supplied process-scoped DER anchor, while the server does not request client authentication. This is intentional for the feasibility probe and is not mutual device authentication.
 
 ## Security interpretation
 

@@ -89,7 +89,34 @@ private final class ExchangeState: @unchecked Sendable {
 }
 
 private final class ConnectionBox: @unchecked Sendable {
-    var value: NWConnection?
+    private let lock = NSLock()
+    private var storedValue: NWConnection?
+
+    var value: NWConnection? {
+        get {
+            lock.lock(); defer { lock.unlock() }
+            return storedValue
+        }
+        set {
+            lock.lock(); defer { lock.unlock() }
+            storedValue = newValue
+        }
+    }
+}
+
+private final class VerificationDiagnostics: @unchecked Sendable {
+    private let lock = NSLock()
+    private var callbackCount = 0
+
+    func recordCallback() {
+        lock.lock(); defer { lock.unlock() }
+        callbackCount += 1
+    }
+
+    var wasInvoked: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return callbackCount > 0
+    }
 }
 
 private func loadIdentity(p12URL: URL, passwordURL: URL) throws -> TestIdentity {
@@ -104,6 +131,13 @@ private func loadIdentity(p12URL: URL, passwordURL: URL) throws -> TestIdentity 
         throw NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Unable to import the temporary test identity"])
     }
     let identity = identityValue as! SecIdentity
+    var privateKey: SecKey?
+    let privateKeyStatus = SecIdentityCopyPrivateKey(identity, &privateKey)
+    print("identity private-key lookup status: \(privateKeyStatus)")
+    if let privateKey {
+        let signingSupported = SecKeyIsAlgorithmSupported(privateKey, .sign, .rsaSignatureMessagePKCS1v15SHA256)
+        print("identity private-key signing capability: \(signingSupported ? "available" : "not reported")")
+    }
     guard let value = sec_identity_create(identity) else {
         throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecInternalComponent), userInfo: [NSLocalizedDescriptionKey: "Unable to create the Network.framework identity"])
     }
@@ -118,14 +152,26 @@ private func loadCertificate(url: URL) throws -> SecCertificate {
     return certificate
 }
 
-private func configureScopedVerification(options: NWProtocolTLS.Options, anchor: SecCertificate) {
+private func configureScopedVerification(
+    options: NWProtocolTLS.Options,
+    anchor: SecCertificate,
+    diagnostics: VerificationDiagnostics
+) {
     sec_protocol_options_set_verify_block(options.securityProtocolOptions, { _, trust, complete in
+        diagnostics.recordCallback()
+        print("TLS verification callback: invoked")
         let trustReference = sec_trust_copy_ref(trust).takeRetainedValue()
-        SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
-        SecTrustSetAnchorCertificatesOnly(trustReference, true)
-        SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, "localhost" as CFString))
+        let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
+        let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)
+        let policyStatus = SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, "localhost" as CFString))
         var error: CFError?
-        complete(SecTrustEvaluateWithError(trustReference, &error))
+        let trusted = SecTrustEvaluateWithError(trustReference, &error)
+        if let error {
+            print("TLS verification result: failure; anchorStatus=\(anchorStatus); anchorOnlyStatus=\(anchorOnlyStatus); policyStatus=\(policyStatus); error=\(String(describing: CFErrorGetDomain(error))):\(CFErrorGetCode(error))")
+        } else {
+            print("TLS verification result: \(trusted ? "success" : "failure"); anchorStatus=\(anchorStatus); anchorOnlyStatus=\(anchorOnlyStatus); policyStatus=\(policyStatus)")
+        }
+        complete(trusted)
     }, queue)
 }
 
@@ -137,6 +183,7 @@ private func runExchange(identity: TestIdentity, anchor: SecCertificate) throws 
     let serverTLS = TLSChannelBindingProbe.makeTLSOptions(identity: identity.value, requirePeerAuthentication: false)
     let listener = try NWListener(using: NWParameters(tls: serverTLS, tcp: NWProtocolTCP.Options()))
     let state = ExchangeState()
+    let verificationDiagnostics = VerificationDiagnostics()
     let completed = DispatchSemaphore(value: 0)
     let acceptedConnection = ConnectionBox()
     let clientConnection = ConnectionBox()
@@ -146,6 +193,13 @@ private func runExchange(identity: TestIdentity, anchor: SecCertificate) throws 
         acceptedConnection.value = connection
         connection.stateUpdateHandler = { connectionState in
             print("server connection state: \(connectionState)")
+            if case .waiting(let error) = connectionState {
+                print("server connection waiting error: \(error)")
+            } else if case .failed(let error) = connectionState {
+                print("server connection failure: \(error)")
+            } else if case .cancelled = connectionState {
+                print("server connection cancelled")
+            }
             guard case .ready = connectionState,
                   let tlsMetadata = metadata(for: connection),
                   let value = TLSChannelBindingProbe.deriveExporterLikeValue(from: tlsMetadata) else { return }
@@ -159,7 +213,7 @@ private func runExchange(identity: TestIdentity, anchor: SecCertificate) throws 
         print("listener state: \(listenerState)")
         guard case .ready = listenerState, let port = listener.port else { return }
         let clientTLS = TLSChannelBindingProbe.makeTLSOptions()
-        configureScopedVerification(options: clientTLS, anchor: anchor)
+        configureScopedVerification(options: clientTLS, anchor: anchor, diagnostics: verificationDiagnostics)
         "localhost".withCString { name in
             sec_protocol_options_set_tls_server_name(clientTLS.securityProtocolOptions, name)
         }
@@ -167,6 +221,13 @@ private func runExchange(identity: TestIdentity, anchor: SecCertificate) throws 
         clientConnection.value = connection
         connection.stateUpdateHandler = { connectionState in
             print("client connection state: \(connectionState)")
+            if case .waiting(let error) = connectionState {
+                print("client connection waiting error: \(error)")
+            } else if case .failed(let error) = connectionState {
+                print("client connection failure: \(error)")
+            } else if case .cancelled = connectionState {
+                print("client connection cancelled")
+            }
             guard case .ready = connectionState,
                   let tlsMetadata = metadata(for: connection),
                   let value = TLSChannelBindingProbe.deriveExporterLikeValue(from: tlsMetadata),
@@ -185,7 +246,10 @@ private func runExchange(identity: TestIdentity, anchor: SecCertificate) throws 
         listener.cancel()
     }
 
-    guard completed.wait(timeout: .now() + 8) == .success else { return nil }
+    guard completed.wait(timeout: .now() + 8) == .success else {
+        print("runtime timeout phase: TLS ready/exporter completion; verification callback invoked=\(verificationDiagnostics.wasInvoked ? "yes" : "no")")
+        return nil
+    }
     return state.snapshot()
 }
 
