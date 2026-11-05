@@ -141,6 +141,14 @@ The `create_secret` functions are exporter-like public APIs and are the stronges
 
 Candidate A therefore **requires further platform feasibility testing** before formal construction specification. No API evidence currently justifies marking it blocked, but no evidence justifies treating it as ready for production implementation.
 
+## Issue #52 isolated API-feasibility evidence
+
+The isolated probe in [`experiments/tls-channel-binding/`](../../experiments/tls-channel-binding/) compiled and ran on the development Mac using Xcode 26.3, Swift 6.2.4, and the installed macOS 26.2 SDK. It references the public `NWProtocolTLS.Metadata` and `sec_protocol_metadata_*` APIs, requires peer authentication in constructed options, and deliberately opens no network connection.
+
+The same source passed direct `swiftc -typecheck` against the installed iOS Simulator SDK for an arm64 iOS 17 simulator target. This is source-level compatibility evidence against a newer installed SDK, not runtime evidence on iOS 17. A SwiftPM cross-compile attempt was rejected because the invocation selected a macOS sysroot for an iPhone target; it does not establish an API limitation.
+
+No listener/client, temporary certificate, trust anchor, exporter comparison, or physical-device test was executed. Therefore same-session equality, cross-session inequality, label/context separation, rejection of an untrusted peer, reconnection behavior, and TLS lifecycle behavior remain unverified. The result supports continued targeted platform testing but does not support selecting or approving Candidate A.
+
 ## Candidate transcript format
 
 The following is an illustrative encoding proposal, not a cryptographic test vector or accepted wire format. It uses a length-delimited binary structure so concatenation is unambiguous. Every integer is unsigned big-endian; every byte string is prefixed by a four-byte length; text fields are UTF-8 and are only used where the field definition permits them.
