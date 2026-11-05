@@ -43,4 +43,27 @@ struct TransportDiagnosticTests {
         #expect(state.phase == .ready)
         #expect(!state.diagnosticExchangeCompleted)
     }
+
+    @Test
+    func acknowledgmentFollowedByConnectionClosurePreservesSuccess() {
+        let acknowledged = TransportDiagnosticReducer.reduce(
+            .init(phase: .ready),
+            .acknowledgmentValidated
+        )
+        let closed = TransportDiagnosticReducer.reduce(acknowledged, .connectionClosed)
+
+        #expect(closed.phase == .ready)
+        #expect(closed.diagnosticExchangeCompleted)
+    }
+
+    @Test
+    func prematureConnectionClosureFailsWithoutAcknowledgment() {
+        let closed = TransportDiagnosticReducer.reduce(
+            .init(phase: .ready),
+            .connectionClosed
+        )
+
+        #expect(closed.phase == .failed)
+        #expect(!closed.diagnosticExchangeCompleted)
+    }
 }

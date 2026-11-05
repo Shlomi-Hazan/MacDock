@@ -22,7 +22,9 @@ The existing `ProtocolFrameCodec` and `ProtocolFrameDecoder` remain the only fra
 
 Incoming data is received with a maximum of header plus 64 KiB. Fragmented and concatenated frames are handled by `ProtocolFrameDecoder`; malformed, unsupported, oversized, or truncated input fails the connection. The iOS coordinator uses a generation identity, cancellation, and a ten-second bounded timeout. A stale callback cannot update a newer attempt. Lost acknowledgments are not replayed.
 
-The diagnostic message contains only the fixed payload `macdock-foundation-diagnostic-v1`. It has no request identifier and cannot carry application data. The Mac listener cancels after sending the fixed acknowledgment.
+The diagnostic message contains only the fixed payload `macdock-foundation-diagnostic-v1`. It has no request identifier and cannot carry application data. The Mac listener intentionally cancels after sending the fixed acknowledgment; the iOS coordinator treats a fully validated acknowledgment followed by clean connection closure as a successful diagnostic exchange. Closure before a valid acknowledgment remains a failure, including malformed, truncated, timed-out, or cancelled attempts.
+
+Each Mac-side diagnostic connection receives its own decoder session. Decoder state is not shared across concurrent connections. On iOS, the transport generation continues to reject callbacks from cancelled or superseded attempts.
 
 ## Physical-device validation plan
 

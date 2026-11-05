@@ -47,6 +47,11 @@ public enum TransportDiagnosticPhase: Equatable, Sendable {
     case cancelled
 }
 
+public enum TransportDiagnosticEvent: Equatable, Sendable {
+    case acknowledgmentValidated
+    case connectionClosed
+}
+
 public struct TransportDiagnosticState: Equatable, Sendable {
     public let phase: TransportDiagnosticPhase
     public let diagnosticExchangeCompleted: Bool
@@ -70,5 +75,19 @@ public enum TransportDiagnosticReducer {
             phase: phase,
             diagnosticExchangeCompleted: exchangeCompleted
         )
+    }
+
+    public static func reduce(
+        _ state: TransportDiagnosticState,
+        _ event: TransportDiagnosticEvent
+    ) -> TransportDiagnosticState {
+        switch event {
+        case .acknowledgmentValidated:
+            return TransportDiagnosticState(phase: .ready, diagnosticExchangeCompleted: true)
+        case .connectionClosed:
+            return state.diagnosticExchangeCompleted
+                ? state
+                : TransportDiagnosticState(phase: .failed)
+        }
     }
 }

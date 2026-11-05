@@ -3,9 +3,13 @@ import Network
 import MacDockShared
 
 @MainActor
+private final class DiagnosticConnectionSession {
+    var decoder = ProtocolFrameDecoder()
+}
+
+@MainActor
 final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     private var listener: NWListener?
-    private var diagnosticDecoder = ProtocolFrameDecoder()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -32,17 +36,20 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     }
 
     private func handleDiagnosticConnection(_ connection: NWConnection) {
-        diagnosticDecoder = ProtocolFrameDecoder()
+        let session = DiagnosticConnectionSession()
         connection.stateUpdateHandler = { state in
             if case .failed = state {
                 connection.cancel()
             }
         }
         connection.start(queue: .main)
-        receiveDiagnostic(on: connection)
+        receiveDiagnostic(on: connection, session: session)
     }
 
-    private func receiveDiagnostic(on connection: NWConnection) {
+    private func receiveDiagnostic(
+        on connection: NWConnection,
+        session: DiagnosticConnectionSession
+    ) {
         connection.receive(
             minimumIncompleteLength: 1,
             maximumLength: ProtocolFrameCodec.headerLength + ProtocolFrameCodec.maximumEncodedFramePayloadLength
@@ -51,7 +58,7 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
                 guard let self, let connection else { return }
                 do {
                     if let data {
-                        let envelopes = try self.diagnosticDecoder.append(data)
+                        let envelopes = try session.decoder.append(data)
                         for envelope in envelopes {
                             guard try TransportDiagnosticCodec.decode(envelope) == .hello else {
                                 connection.cancel()
@@ -67,10 +74,10 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
                         }
                     }
                     if isComplete {
-                        try self.diagnosticDecoder.finish()
+                        try session.decoder.finish()
                         connection.cancel()
                     } else {
-                        self.receiveDiagnostic(on: connection)
+                        self.receiveDiagnostic(on: connection, session: session)
                     }
                 } catch {
                     connection.cancel()

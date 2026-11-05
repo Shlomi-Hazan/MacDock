@@ -75,7 +75,8 @@ final class BonjourDiscoveryCoordinator: ObservableObject {
                 case .failed, .waiting:
                     self.failTransport(generation: currentGeneration)
                 case .cancelled:
-                    if self.transportState.phase != .failed {
+                    if !self.transportState.diagnosticExchangeCompleted,
+                       self.transportState.phase != .failed {
                         self.transportState = TransportDiagnosticReducer.reduce(.init(), .cancelled)
                     }
                 default:
@@ -144,13 +145,24 @@ final class BonjourDiscoveryCoordinator: ObservableObject {
                             }
                             self.timeoutWorkItem?.cancel()
                             self.transportState = TransportDiagnosticReducer.reduce(
-                                .init(), .ready, exchangeCompleted: true
+                                self.transportState,
+                                .acknowledgmentValidated
                             )
                         }
                     }
                     if isComplete {
                         try self.transportDecoder.finish()
-                        self.failTransport(generation: generation)
+                        self.transportState = TransportDiagnosticReducer.reduce(
+                            self.transportState,
+                            .connectionClosed
+                        )
+                        if self.transportState.phase == .failed {
+                            self.failTransport(generation: generation)
+                        } else {
+                            self.timeoutWorkItem?.cancel()
+                            self.timeoutWorkItem = nil
+                            self.connection = nil
+                        }
                     } else {
                         self.receiveTransport(on: connection, generation: generation)
                     }
