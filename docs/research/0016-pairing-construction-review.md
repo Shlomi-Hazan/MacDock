@@ -2,7 +2,7 @@
 
 - Issue: [#52](https://github.com/Shlomi-Hazan/MacDock/issues/52)
 - Stage: Stage 2 — Connection & Pairing
-- Status: Draft security design; no construction selected or approved
+- Status: Draft security design; candidate comparison complete, no construction selected or approved
 - Related: [Issue #38](https://github.com/Shlomi-Hazan/MacDock/issues/38), [Issue #41](https://github.com/Shlomi-Hazan/MacDock/issues/41), [ADR 0003](../decisions/0003-qr-first-pairing-and-peer-authentication.md), [ADR 0005](../decisions/0005-network-transport-and-protocol-boundary.md)
 
 ## Executive decision
@@ -16,6 +16,7 @@ The current recommendation is to investigate a TLS 1.3 transport combined with a
 | Claim | Classification |
 | --- | --- |
 | Network.framework can provide a TLS transport integration seam | Documentation-based; the Stage 0 transport experiment validated only a test transport and fingerprint check |
+| Public Security APIs expose TLS-derived secrets, peer public-key material, and certificate-chain access from protocol metadata | Documentation-based; exact macOS 14/iOS 17 availability and Swift integration remain to be compiled and exercised |
 | TLS 1.3 provides encrypted, integrity-protected records and a handshake transcript | Standards-based; see [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446.html) |
 | Apple platforms expose CryptoKit and device-dependent Secure Enclave APIs | Documentation-based; see [CryptoKit](https://developer.apple.com/documentation/cryptokit) and [SecureEnclave](https://developer.apple.com/documentation/cryptokit/secureenclave) |
 | A concrete MacDock pairing construction is secure | Not established; requires design selection, review, implementation, vectors, and device tests |
@@ -49,13 +50,15 @@ Use a concrete, reviewed Noise pattern for ephemeral handshake and identity auth
 
 **Status:** viable alternative, not approved.
 
-### Candidate C — SPAKE2+ or another PAKE
+### Candidate C — SPAKE2, SPAKE2+, or another PAKE
 
-Use a standardized password-authenticated key exchange such as [SPAKE2](https://www.rfc-editor.org/rfc/rfc9382.html), with a short bootstrap secret or code and explicit transcript confirmation.
+SPAKE2 and SPAKE2+ are distinct standards and must not be conflated. [RFC 9382](https://www.rfc-editor.org/rfc/rfc9382.html) specifies SPAKE2, while [RFC 9383](https://www.rfc-editor.org/rfc/rfc9383.html) specifies SPAKE2+. Both are password-authenticated key exchanges, but their protocol messages, key derivation, security proofs/assumptions, and required implementation details differ. A MacDock design must select one exact standard and parameter set rather than referring generically to “SPAKE2+”.
 
-**Strengths:** can resist passive offline password guessing when the password model and parameters are correct; the standard specifies transcript-related key confirmation requirements.
+Either candidate would use a short bootstrap secret or code and explicit transcript confirmation. It would not automatically provide a durable device identity or a complete trust lifecycle.
 
-**Risks:** MacDock starts from device identities and QR bootstrap, not a user password. A short code has limited entropy and needs careful rate limiting and confirmation semantics. Apple has no direct SPAKE2 API; a reviewed implementation and test vectors would be required. It does not remove the need for long-term identity, revocation, or recovery design.
+**Strengths:** a correctly parameterized PAKE can resist passive offline password guessing within its stated password model; each RFC specifies its own transcript and key-confirmation requirements.
+
+**Risks:** MacDock starts from device identities and QR bootstrap, not a reusable user password. A short code has limited entropy and needs careful rate limiting and confirmation semantics. Apple has no direct SPAKE2 or SPAKE2+ API; a reviewed implementation, exact parameter selection, and independent test vectors would be required. Neither option removes the need for long-term identity, revocation, or recovery design.
 
 **Status:** not preferred for the one-Mac/one-iPhone MVP unless a strong password/bootstrap requirement emerges.
 
@@ -68,6 +71,22 @@ Provision device certificates and a private trust anchor through the pairing flo
 **Risks:** certificate issuance, trust-anchor protection, rotation, revocation, replacement, and QR bootstrap become a miniature PKI. Local certificate lifecycle and failure recovery are substantial for a single-developer MVP. A certificate accepted by TLS still needs an application authorization decision.
 
 **Status:** technically possible but operationally heavy; not selected.
+
+## Approval maturity
+
+The following maturity levels are tracked separately:
+
+| Level | Current status |
+| --- | --- |
+| Candidate comparison completed | Achieved by this document |
+| Candidate architecture provisionally preferred | Achieved: Candidate A is the leading direction for further review |
+| Exact construction specified | Not achieved |
+| Platform feasibility validated on macOS 14 and iOS 17 | Not achieved; documentation identifies APIs, but no targeted API compile/runtime experiment has been completed |
+| Canonical cryptographic test vectors produced | Not achieved; only illustrative fixtures are proposed below |
+| Independent cryptographic review completed | Not achieved |
+| Maintainer approval recorded | Not achieved for a construction; the existing approval covers requirements and research only |
+
+Issue #52 therefore remains open and In Progress. This PR does not satisfy the security gate for Issues #42 or #43.
 
 ## Provisional recommendation
 
@@ -84,6 +103,128 @@ Candidate A must not be implemented until the following are specified and indepe
 7. Pending versus committed trust and crash-consistent two-sided confirmation.
 8. Key replacement, revocation, lost-device recovery, and changed-peer behavior.
 9. Negative test vectors and an independent cryptographic review.
+
+## Apple TLS binding feasibility
+
+Apple's public documentation exposes useful primitives, but it does not by itself prove that Candidate A is implementable with the intended identity and trust model.
+
+### Publicly documented capabilities
+
+`NWProtocolTLS.Metadata` exposes `securityProtocolMetadata`, which gives access to `sec_protocol_metadata_t` after the TLS handshake. Apple's public Security documentation lists:
+
+- `sec_protocol_metadata_create_secret` and `sec_protocol_metadata_create_secret_with_context`, which derive an exported secret from protocol metadata using a label, optional context, and requested length.
+- `sec_protocol_metadata_copy_peer_public_key`, which returns peer public-key material when available.
+- `sec_protocol_metadata_access_peer_certificate_chain`, which exposes the peer certificate chain for certificate-based designs.
+- Negotiated TLS version and cipher-suite accessors.
+- Public TLS verification and identity configuration hooks through `sec_protocol_options`.
+
+These APIs are documented at [Security Options](https://developer.apple.com/documentation/network/security-options), [sec_protocol_metadata_create_secret](https://developer.apple.com/documentation/security/sec_protocol_metadata_create_secret(_:_:_:_:)), [sec_protocol_metadata_create_secret_with_context](https://developer.apple.com/documentation/Security/sec_protocol_metadata_create_secret_with_context(_:_:_:_:_:_:)), and [NWProtocolTLS.Metadata](https://developer.apple.com/documentation/network/nwprotocoltls/metadata).
+
+The `create_secret` functions are exporter-like public APIs and are the strongest documented candidate for a TLS-session binding value. The documentation does not establish that a MacDock transcript may safely use an exported value without deciding the exact label, context, exporter length, TLS resumption policy, early-data policy, and session lifecycle. The value must be obtained from the exact connection's metadata and must never be replaced with a service name, endpoint, certificate hash, or locally generated nonce.
+
+### What remains unverified
+
+- The repository has not compiled a targeted adapter against the macOS 14 and iOS 17 SDK interfaces for these functions.
+- No physical Mac/iPhone test has compared exporter-derived values across the two ends of the same TLS session.
+- No test has established behavior across reconnect, TLS resumption, early data, listener restart, or certificate/key replacement.
+- The relationship between an exporter-derived value and the selected long-term CryptoKit/Secure Enclave identity is not yet specified.
+- The public API surface does not remove the need for a reviewed certificate/public-key verification policy.
+
+### Binding alternatives
+
+| Binding design | Security dependency | Current assessment |
+| --- | --- | --- |
+| TLS exporter-like secret plus signed transcript | Exact exporter label/context, same-session metadata, peer verification, identity signatures, and transcript domain separation | Promising but requires targeted API and protocol testing |
+| Peer public-key/certificate bytes plus signed transcript | Correct peer verification and an unambiguous certificate/public-key representation; certificate bytes alone do not prove the session is the same channel | Viable only with reviewed identity and TLS verification policy |
+| Mutual TLS device credentials | Certificate issuance, trust-anchor distribution, rotation, revocation, and recovery | Public APIs support the mechanics, but lifecycle is heavy and unreviewed |
+| Alternative reviewed handshake such as a concrete Noise pattern | Reviewed implementation/library, identity binding, transcript vectors, and integration with Network.framework | Fallback if TLS binding cannot meet the required properties |
+
+Candidate A therefore **requires further platform feasibility testing** before formal construction specification. No API evidence currently justifies marking it blocked, but no evidence justifies treating it as ready for production implementation.
+
+## Candidate transcript format
+
+The following is an illustrative encoding proposal, not a cryptographic test vector or accepted wire format. It uses a length-delimited binary structure so concatenation is unambiguous. Every integer is unsigned big-endian; every byte string is prefixed by a four-byte length; text fields are UTF-8 and are only used where the field definition permits them.
+
+```text
+MACDOCK-PAIRING-TRANSCRIPT
+format-version: uint16
+construction-suite: length-prefixed ASCII
+initiator-role: one fixed role code
+responder-role: one fixed role code
+initiator-identity: length-prefixed canonical public-key representation
+responder-identity: length-prefixed canonical public-key representation
+initiator-ephemeral: length-prefixed ephemeral public value
+responder-ephemeral: length-prefixed ephemeral public value
+qr-bootstrap-id: length-prefixed one-time opaque value
+qr-expiry: uint64
+initiator-nonce: exactly 32 bytes
+responder-nonce: exactly 32 bytes
+tls-binding: length-prefixed exporter-derived value or reviewed alternative
+prior-transcript-hash: length-prefixed value, empty only for first pairing
+```
+
+The actual implementation must encode fields by numeric tag or a separately specified canonical schema, reject duplicate or unknown security-critical fields, enforce fixed lengths, bind the roles in a single canonical order, and domain-separate every signature and SAS derivation. The literal example above is useful for review only; it has not been independently tested or approved.
+
+Illustrative signature input:
+
+```text
+signature-input = H(domain || transcript-bytes || confirmation-purpose)
+```
+
+The exact hash, signature algorithm, public-key encoding, domain string, and confirmation purpose remain unresolved. A signature over the transcript authenticates the transcript only if the key is already bound to the intended peer and the channel binding is from the exact authenticated session.
+
+## Pairing confirmation and durable commitment
+
+QR expiry and one-time use must be enforced by a bounded pairing-session record, not only by UI state. Each pairing session needs fresh nonces, a unique session identifier, a maximum lifetime, cancellation, and replay/duplicate handling. The Mac and iPhone must independently display and confirm the same derived SAS before either side can send a final confirmation.
+
+Verifying the same transcript proves that both sides authenticated the same proposed exchange; it does not prove that both sides durably committed the pairing record. The future implementation therefore needs a pending record, an authenticated final-confirmation exchange, crash-safe commit semantics, and recovery rules for:
+
+- one-sided approval;
+- a lost final acknowledgment;
+- duplicate final messages;
+- a crash between local writes;
+- a retry after one side committed and the other did not;
+- changed or revoked identity material.
+
+Only a fully committed record may be consumed by an authorized-session gate. A replacement key must enter recovery or require explicit re-pairing; it must never be silently substituted.
+
+## Adversarial review
+
+| Scenario | Required defense | Residual risk or evidence gap |
+| --- | --- | --- |
+| Active local MITM | TLS verification plus transcript identity signatures and exact channel binding | No construction or test vectors selected |
+| Rogue Bonjour advertisement | Treat discovery as untrusted; require QR-bound peer verification | Candidate metadata can still be spoofed |
+| QR substitution | Display origin and peer details; bind one-time QR data into the transcript; require two-sided confirmation | Physical-origin assumption and user error remain |
+| Unknown-key-share | Bind both ordered roles, both identities, session values, and channel binding into the transcript | Requires formal review of role and identity encoding |
+| Role confusion | Fixed initiator/responder roles and role bytes in every signed transcript | Not implemented or tested |
+| Downgrade | Version and suite negotiation is authenticated; reject unsupported or conflicting values | Exact negotiation policy unresolved |
+| Transcript substitution | Sign the canonical transcript and include QR, freshness, and TLS binding | Canonical encoding not accepted |
+| TLS channel substitution | Derive the binding from the exact TLS metadata and include it in signed data | Exporter integration untested on target OS versions |
+| Replay or duplicate messages | Fresh nonces, one-time session, expiry, request IDs, and idempotent finalization | Test vectors and persistence behavior pending |
+| One-sided approval | Pending state and no authorization until both confirmations commit | Requires crash-consistent implementation |
+| Lost final acknowledgment | Reconcile authenticated session state without replaying non-idempotent actions | Recovery protocol not specified |
+| Crash during storage | Durable pending/committed records with fail-closed recovery | Keychain adapter not implemented |
+| Key replacement/revocation | Explicit revocation marker and re-pairing; changed key fails closed | Lifecycle policy pending #53 and construction review |
+| Relay attack | Explain physical-origin assumption; bind SAS and transcript, but do not claim cryptographic relay prevention | Residual relay risk remains |
+
+## Required test-vector set
+
+The eventual selected construction must publish deterministic, non-secret fixtures for:
+
+1. Positive pairing with both roles and both confirmations.
+2. Wrong Mac identity and wrong iPhone identity.
+3. Swapped roles and swapped identity ordering.
+4. Changed one byte of QR bootstrap, expiry, nonce, or TLS binding.
+5. Replayed bootstrap and replayed final confirmation.
+6. Duplicate final confirmation after commit and after cancellation.
+7. Unsupported protocol version or suite.
+8. Truncated, duplicated, reordered, or unknown transcript fields.
+9. Exporter value from a different TLS session.
+10. Revoked, replaced, missing, corrupt, or inaccessible identity record.
+11. Crash/restart at each pending-to-committed transition.
+12. SAS mismatch, user rejection, timeout, and relay-limitation documentation.
+
+These are required artifacts, not evidence that has already been generated or validated.
 
 ## Pairing state and authorization gate
 
