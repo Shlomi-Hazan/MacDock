@@ -5,13 +5,16 @@ import MacDockShared
 @MainActor
 final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     private var listener: NWListener?
+    private var diagnosticDecoder = ProtocolFrameDecoder()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
             let listener = try NWListener(using: .tcp)
             listener.service = NWListener.Service(name: "MacDock Mac", type: "_macdock._tcp")
             listener.newConnectionHandler = { [weak self] connection in
-                self?.handleDiagnosticConnection(connection)
+                Task { @MainActor [weak self] in
+                    self?.handleDiagnosticConnection(connection)
+                }
             }
             listener.stateUpdateHandler = { state in
                 if case .failed = state { listener.cancel() }
@@ -29,22 +32,26 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     }
 
     private func handleDiagnosticConnection(_ connection: NWConnection) {
-        var decoder = ProtocolFrameDecoder()
+        diagnosticDecoder = ProtocolFrameDecoder()
         connection.stateUpdateHandler = { state in
             if case .failed = state {
                 connection.cancel()
             }
         }
         connection.start(queue: .main)
+        receiveDiagnostic(on: connection)
+    }
 
-        func receive() {
-            connection.receive(
-                minimumIncompleteLength: 1,
-                maximumLength: ProtocolFrameCodec.headerLength + ProtocolFrameCodec.maximumEncodedFramePayloadLength
-            ) { data, _, isComplete, _ in
+    private func receiveDiagnostic(on connection: NWConnection) {
+        connection.receive(
+            minimumIncompleteLength: 1,
+            maximumLength: ProtocolFrameCodec.headerLength + ProtocolFrameCodec.maximumEncodedFramePayloadLength
+        ) { [weak self, weak connection] data, _, isComplete, _ in
+            Task { @MainActor [weak self, weak connection] in
+                guard let self, let connection else { return }
                 do {
                     if let data {
-                        let envelopes = try decoder.append(data)
+                        let envelopes = try self.diagnosticDecoder.append(data)
                         for envelope in envelopes {
                             guard try TransportDiagnosticCodec.decode(envelope) == .hello else {
                                 connection.cancel()
@@ -60,18 +67,16 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
                         }
                     }
                     if isComplete {
-                        try decoder.finish()
+                        try self.diagnosticDecoder.finish()
                         connection.cancel()
                     } else {
-                        receive()
+                        self.receiveDiagnostic(on: connection)
                     }
                 } catch {
                     connection.cancel()
                 }
             }
         }
-
-        receive()
     }
 }
 
