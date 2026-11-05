@@ -33,9 +33,9 @@ Issue #39 may prototype untrusted discovery after the security boundary is under
 
 | Issue | Workstream | Initial status | Gate |
 | --- | --- | --- | --- |
-| [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38) | Pairing security specification and trust gates | Ready | First security review; ADR 0003 remains Proposed |
-| [#39](https://github.com/Shlomi-Hazan/MacDock/issues/39) | Production Bonjour candidate discovery | Backlog | Visibility only; no identity or trust |
-| [#40](https://github.com/Shlomi-Hazan/MacDock/issues/40) | Bounded Network.framework transport | Backlog | Transport-only state; no authorization |
+| [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38) | Pairing security specification and trust gates | Done | Requirements baseline; ADR 0003 remains Proposed |
+| [#39](https://github.com/Shlomi-Hazan/MacDock/issues/39) | Production Bonjour candidate discovery | Done | Visibility only; no identity or trust |
+| [#40](https://github.com/Shlomi-Hazan/MacDock/issues/40) | Bounded Network.framework transport | Done | Transport-only diagnostic path; no authorization |
 | [#41](https://github.com/Shlomi-Hazan/MacDock/issues/41) | Device identity and secure key storage design | Done | Design baseline; implementation is tracked separately |
 | [#52](https://github.com/Shlomi-Hazan/MacDock/issues/52) | Pairing construction selection and review gate | In Progress | Must be explicitly accepted before pairing implementation |
 | [#53](https://github.com/Shlomi-Hazan/MacDock/issues/53) | Platform identity and Keychain adapters | Backlog | Requires #41 and the approved #52 construction |
