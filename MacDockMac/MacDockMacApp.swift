@@ -9,7 +9,9 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
         do {
             let listener = try NWListener(using: .tcp)
             listener.service = NWListener.Service(name: "MacDock Mac", type: "_macdock._tcp")
-            listener.newConnectionHandler = { connection in connection.cancel() }
+            listener.newConnectionHandler = { [weak self] connection in
+                self?.handleDiagnosticConnection(connection)
+            }
             listener.stateUpdateHandler = { state in
                 if case .failed = state { listener.cancel() }
             }
@@ -23,6 +25,52 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         listener?.cancel()
         listener = nil
+    }
+
+    private func handleDiagnosticConnection(_ connection: NWConnection) {
+        var decoder = ProtocolFrameDecoder()
+        connection.stateUpdateHandler = { state in
+            if case .failed = state {
+                connection.cancel()
+            }
+        }
+        connection.start(queue: .main)
+
+        func receive() {
+            connection.receive(
+                minimumIncompleteLength: 1,
+                maximumLength: ProtocolFrameCodec.headerLength + ProtocolFrameCodec.maximumEncodedFramePayloadLength
+            ) { data, _, isComplete, _ in
+                do {
+                    if let data {
+                        let envelopes = try decoder.append(data)
+                        for envelope in envelopes {
+                            guard try TransportDiagnosticCodec.decode(envelope) == .hello else {
+                                connection.cancel()
+                                return
+                            }
+                            let acknowledgment = try ProtocolFrameCodec.encode(
+                                TransportDiagnosticCodec.acknowledgmentEnvelope()
+                            )
+                            connection.send(content: acknowledgment, completion: .contentProcessed { _ in
+                                connection.cancel()
+                            })
+                            return
+                        }
+                    }
+                    if isComplete {
+                        try decoder.finish()
+                        connection.cancel()
+                    } else {
+                        receive()
+                    }
+                } catch {
+                    connection.cancel()
+                }
+            }
+        }
+
+        receive()
     }
 }
 
