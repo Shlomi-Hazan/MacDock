@@ -229,6 +229,8 @@ The target builds for the iOS Simulator and generic iOS device with signing disa
 
 The Mac probe also provides a limited `--listen` mode. It accepts the fixed `MDCB` diagnostic request and returns only the in-memory exporter value over the already verified TLS channel, then closes the connection. It is not a general transport or command endpoint.
 
+The diagnostic response currently transmits the exporter-derived bytes so the isolated client can compare them. This is intentionally experiment-only: the bytes are not displayed or persisted, but the response shape is not an acceptable production protocol because exporter material must remain an internal channel-binding input rather than an application payload. A future production design must replace this comparison exchange with a reviewed transcript-binding mechanism.
+
 Example Mac listener command:
 
 ```sh
@@ -252,6 +254,48 @@ The iOS client now keeps one attempt generation, rejects concurrent starts, pres
 After the Start/Cancel controls were separated, the maintainer repeated one clean attempt. The iPhone logged `starting transport attempt`, `connection state: preparing`, and `transport timeout`; no TLS verification callback, TLS-ready state, or exporter comparison was observed. The Mac listener logged `listener state: ready`, `listener accepted connection`, `server connection state: preparing`, followed by POSIX error 60 (`Operation timed out`). The earlier automatic-cancellation symptom was not reproduced. The post-timeout Network.framework metadata warning was recorded as a consequence of the unconnected state, not as a root-cause classification.
 
 The supplied temporary certificate was inspected and contained an IP SAN for `192.168.1.200`, `serverAuth`, and digital-signature/key-encipherment usage. This rules out a missing IP SAN as an explanation, but does not establish that an IP literal supplied as both `NWEndpoint.Host` and TLS server name behaves as required on iOS. Remaining hypotheses include IP-literal SNI/policy behavior, iOS-specific TLS negotiation or trust handling, and an interface-specific listener path. The next discriminating test is a fresh temporary certificate with a DNS SAN matching the Mac's mDNS hostname (for example, `MacName.local`), with that same hostname used for both the iOS host and TLS server name; verification must remain scoped to the supplied certificate and must not be disabled.
+
+### Maintainer-reported physical negative trust validation
+
+The maintainer then ran two isolated negative tests on the same physical iPhone 14 Pro Max and Mac listener, using TLS 1.3 and process-scoped certificate verification.
+
+**Wrong trust anchor:** the Mac presented the valid temporary server certificate while the iPhone trusted an unrelated temporary public certificate. The iPhone reported:
+
+```text
+TLS verification callback invoked
+TLS verification failed: domain=NSOSStatusErrorDomain code=-67843
+CERTIFICATE_VERIFY_FAILED
+fatal, description: certificate unknown
+```
+
+The Mac reported:
+
+```text
+server connection state: failed(-9825: misc. bad certificate)
+```
+
+No TLS-ready state or exporter exchange occurred. This is explicit fail-closed trust-anchor rejection.
+
+**Wrong hostname:** the Mac presented a certificate containing `DNS:Shlomis-MacBook-Pro-2.local`; the iPhone used the correct public trust anchor but required `wronghost.local`. The iPhone reported:
+
+```text
+TLS verification callback invoked
+TLS verification failed: domain=NSOSStatusErrorDomain code=-67602
+CERTIFICATE_VERIFY_FAILED
+fatal, description: certificate unknown
+```
+
+The Mac again reported:
+
+```text
+server connection state: failed(-9825: misc. bad certificate)
+```
+
+No TLS-ready state or exporter exchange occurred. This is explicit fail-closed hostname-mismatch rejection.
+
+These are maintainer-reported physical-device observations, not independently executed CI results. They distinguish certificate rejection from an inconclusive timeout because the iPhone verification callback ran and reported explicit Security.framework errors.
+
+The iOS UI previously reduced some verification failures to the generic `Timeout: no verified exchange` state when Network.framework did not emit a failure before the bounded timeout. The isolated client now records an explicit rejection flag for the active attempt when the verification callback fails or trust configuration cannot be applied, and reports `Failed: certificate verification rejected` at the terminal failure/timeout boundary. It does not infer certificate failure when the callback did not report one, and the flag is cleared between attempts. This is diagnostic reporting only and does not alter trust evaluation.
 
 ### Queue assertion investigation
 

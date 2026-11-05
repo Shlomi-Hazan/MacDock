@@ -9,6 +9,23 @@ private let transportLogger = Logger(
     category: "transport"
 )
 
+private final class VerificationOutcome: @unchecked Sendable {
+    private let lock = NSLock()
+    private var rejected = false
+
+    func markRejected() {
+        lock.lock()
+        rejected = true
+        lock.unlock()
+    }
+
+    var wasRejected: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return rejected
+    }
+}
+
 /// Installs a verification callback created outside any actor-isolated context.
 /// The callback performs only trust evaluation and invokes Network.framework's
 /// completion handler on the queue supplied by Network.framework.
@@ -16,7 +33,8 @@ private func installScopedTLSVerification(
     on options: NWProtocolTLS.Options,
     anchor: SecCertificate,
     expectedServerName: String,
-    callbackQueue: DispatchQueue
+    callbackQueue: DispatchQueue,
+    outcome: VerificationOutcome
 ) {
     sec_protocol_options_set_verify_block(options.securityProtocolOptions, { _, trust, complete in
         transportLogger.info("TLS verification callback invoked")
@@ -27,12 +45,14 @@ private func installScopedTLSVerification(
         guard anchorStatus == errSecSuccess,
               anchorOnlyStatus == errSecSuccess,
               policyStatus == errSecSuccess else {
+            outcome.markRejected()
             transportLogger.error("TLS verification configuration failed: anchor=\(anchorStatus, privacy: .public) anchorOnly=\(anchorOnlyStatus, privacy: .public) policy=\(policyStatus, privacy: .public)")
             complete(false)
             return
         }
         var error: CFError?
         let trusted = SecTrustEvaluateWithError(trustReference, &error)
+        if !trusted { outcome.markRejected() }
         if let error {
             transportLogger.error("TLS verification failed: domain=\(CFErrorGetDomain(error) as String, privacy: .public) code=\(CFErrorGetCode(error), privacy: .public)")
         } else {
@@ -53,6 +73,7 @@ final class ChannelBindingClientModel: ObservableObject {
 
     private var connection: NWConnection?
     private var localExporter: Data?
+    private var verificationOutcome: VerificationOutcome?
     private var timeoutTask: Task<Void, Never>?
     private var attemptGeneration: UInt64 = 0
     private var activeAttempt: UInt64?
@@ -86,6 +107,8 @@ final class ChannelBindingClientModel: ObservableObject {
         sec_protocol_options_set_min_tls_protocol_version(options.securityProtocolOptions, .TLSv13)
         sec_protocol_options_set_max_tls_protocol_version(options.securityProtocolOptions, .TLSv13)
         let expectedServerName = serverName
+        let verificationOutcome = VerificationOutcome()
+        self.verificationOutcome = verificationOutcome
         serverName.withCString { name in
             sec_protocol_options_set_tls_server_name(options.securityProtocolOptions, name)
         }
@@ -93,7 +116,8 @@ final class ChannelBindingClientModel: ObservableObject {
             on: options,
             anchor: anchor,
             expectedServerName: expectedServerName,
-            callbackQueue: queue
+            callbackQueue: queue,
+            outcome: verificationOutcome
         )
 
         let nwPort = NWEndpoint.Port(rawValue: portNumber)!
@@ -115,7 +139,10 @@ final class ChannelBindingClientModel: ObservableObject {
                     self.status = "Waiting: \(error)"
                 case .failed(let error):
                     transportLogger.error("TLS/transport failure: \(String(describing: error), privacy: .public)")
-                    self.finish(attempt: attempt, status: "TLS/transport failed: \(error)", cancelConnection: false)
+                    let status = verificationOutcome.wasRejected
+                        ? "Failed: certificate verification rejected"
+                        : "TLS/transport failed: \(error)"
+                    self.finish(attempt: attempt, status: status, cancelConnection: false)
                 case .cancelled:
                     self.finish(attempt: attempt, status: "Transport closed before verified exchange", cancelConnection: false)
                 default:
@@ -143,7 +170,10 @@ final class ChannelBindingClientModel: ObservableObject {
     private func handleTimeout(attempt: UInt64) {
         guard activeAttempt == attempt else { return }
         transportLogger.error("transport timeout")
-        finish(attempt: attempt, status: "Timeout: no verified exchange", cancelConnection: true)
+        let status = verificationOutcome?.wasRejected == true
+            ? "Failed: certificate verification rejected"
+            : "Timeout: no verified exchange"
+        finish(attempt: attempt, status: status, cancelConnection: true)
     }
 
     private func finish(attempt: UInt64, status terminalStatus: String, cancelConnection: Bool) {
@@ -155,6 +185,7 @@ final class ChannelBindingClientModel: ObservableObject {
         let currentConnection = connection
         connection = nil
         localExporter = nil
+        verificationOutcome = nil
         self.status = terminalStatus
         if cancelConnection { currentConnection?.cancel() }
     }
