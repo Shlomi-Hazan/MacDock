@@ -83,6 +83,40 @@ jobs:
           CODE_SIGNING_REQUIRED=NO
           build
 
+  isolated-tls-ios-bundle:
+    name: isolated-tls-ios-bundle
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Build isolated iOS target without signing
+        run: >-
+          xcodebuild
+          -project experiments/tls-channel-binding/iOS/TLSChannelBindingClient.xcodeproj
+          -scheme TLSChannelBindingClient
+          -configuration Debug
+          -destination 'generic/platform=iOS'
+          -derivedDataPath "$RUNNER_TEMP/tls-channel-binding-ios"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
+      - name: Validate isolated app bundle metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/tls-channel-binding-ios/Build/Products/Debug-iphoneos/TLSChannelBindingClient.app"
+          test -d "$app"
+          plutil -lint "$app/Info.plist"
+          executable="$(plutil -extract CFBundleExecutable raw -o - "$app/Info.plist")"
+          test -n "$executable"
+          test -x "$app/$executable"
+          file "$app/$executable" | grep -q 'Mach-O'
+          lipo -archs "$app/$executable" | tr ' ' '\n' | grep -qx arm64
+
   secret-scan:
     name: secret-scan
     runs-on: ubuntu-latest
