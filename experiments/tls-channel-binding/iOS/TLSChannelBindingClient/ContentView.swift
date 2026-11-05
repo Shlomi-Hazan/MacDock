@@ -4,6 +4,11 @@ import OSLog
 import Security
 import SwiftUI
 
+private let transportLogger = Logger(
+    subsystem: "com.macdock.experiment.tls-channel-binding.ios",
+    category: "transport"
+)
+
 @MainActor
 final class ChannelBindingClientModel: ObservableObject {
     @Published var host = ""
@@ -19,7 +24,6 @@ final class ChannelBindingClientModel: ObservableObject {
     private var attemptGeneration: UInt64 = 0
     private var activeAttempt: UInt64?
     private let queue = DispatchQueue(label: "com.macdock.experiment.tls-channel-binding.ios")
-    private let logger = Logger(subsystem: "com.macdock.experiment.tls-channel-binding.ios", category: "transport")
     private let label = "com.macdock.experiment.channel-binding.v1"
     private let context = Data("macdock-channel-binding-context-v1".utf8)
 
@@ -43,7 +47,7 @@ final class ChannelBindingClientModel: ObservableObject {
         activeAttempt = attempt
         isRunning = true
         status = "Connecting (unverified candidate)"
-        logger.info("starting transport attempt")
+        transportLogger.info("starting transport attempt")
         let options = NWProtocolTLS.Options()
         sec_protocol_options_set_peer_authentication_required(options.securityProtocolOptions, true)
         sec_protocol_options_set_min_tls_protocol_version(options.securityProtocolOptions, .TLSv13)
@@ -53,7 +57,9 @@ final class ChannelBindingClientModel: ObservableObject {
             sec_protocol_options_set_tls_server_name(options.securityProtocolOptions, name)
         }
         sec_protocol_options_set_verify_block(options.securityProtocolOptions, { [weak self] _, trust, complete in
-            self?.logger.info("TLS verification callback invoked")
+            // This callback runs on `queue`, not on the MainActor. Do not access
+            // MainActor-isolated model state from here.
+            transportLogger.info("TLS verification callback invoked")
             let trustReference = sec_trust_copy_ref(trust).takeRetainedValue()
             let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
             let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)
@@ -61,16 +67,16 @@ final class ChannelBindingClientModel: ObservableObject {
             guard anchorStatus == errSecSuccess,
                   anchorOnlyStatus == errSecSuccess,
                   policyStatus == errSecSuccess else {
-                self?.logger.error("TLS verification configuration failed: anchor=\(anchorStatus, privacy: .public) anchorOnly=\(anchorOnlyStatus, privacy: .public) policy=\(policyStatus, privacy: .public)")
+                transportLogger.error("TLS verification configuration failed: anchor=\(anchorStatus, privacy: .public) anchorOnly=\(anchorOnlyStatus, privacy: .public) policy=\(policyStatus, privacy: .public)")
                 complete(false)
                 return
             }
             var error: CFError?
             let trusted = SecTrustEvaluateWithError(trustReference, &error)
             if let error {
-                self?.logger.error("TLS verification failed: domain=\(CFErrorGetDomain(error) as String, privacy: .public) code=\(CFErrorGetCode(error), privacy: .public)")
+                transportLogger.error("TLS verification failed: domain=\(CFErrorGetDomain(error) as String, privacy: .public) code=\(CFErrorGetCode(error), privacy: .public)")
             } else {
-                self?.logger.info("TLS verification callback completed: \(trusted ? "success" : "failure", privacy: .public)")
+                transportLogger.info("TLS verification callback completed: \(trusted ? "success" : "failure", privacy: .public)")
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.activeAttempt == attempt else { return }
@@ -85,7 +91,7 @@ final class ChannelBindingClientModel: ObservableObject {
         newConnection.stateUpdateHandler = { [weak self] state in
             DispatchQueue.main.async {
                 guard let self, self.activeAttempt == attempt, self.connection === newConnection else { return }
-                self.logger.info("connection state: \(String(describing: state), privacy: .public)")
+                transportLogger.info("connection state: \(String(describing: state), privacy: .public)")
                 switch state {
                 case .preparing:
                     self.status = "TLS preparing"
@@ -97,7 +103,7 @@ final class ChannelBindingClientModel: ObservableObject {
                 case .waiting(let error):
                     self.status = "Waiting: \(error)"
                 case .failed(let error):
-                    self.logger.error("TLS/transport failure: \(String(describing: error), privacy: .public)")
+                    transportLogger.error("TLS/transport failure: \(String(describing: error), privacy: .public)")
                     self.finish(attempt: attempt, status: "TLS/transport failed: \(error)", cancelConnection: false)
                 case .cancelled:
                     self.finish(attempt: attempt, status: "Transport closed before verified exchange", cancelConnection: false)
@@ -119,13 +125,13 @@ final class ChannelBindingClientModel: ObservableObject {
             if status != "Idle" { status = "Cancelled" }
             return
         }
-        logger.info("user cancelled transport attempt")
+        transportLogger.info("user cancelled transport attempt")
         finish(attempt: attempt, status: "Cancelled", cancelConnection: true)
     }
 
     private func handleTimeout(attempt: UInt64) {
         guard activeAttempt == attempt else { return }
-        logger.error("transport timeout")
+        transportLogger.error("transport timeout")
         finish(attempt: attempt, status: "Timeout: no verified exchange", cancelConnection: true)
     }
 
@@ -153,7 +159,7 @@ final class ChannelBindingClientModel: ObservableObject {
             if let error {
                 DispatchQueue.main.async {
                     guard let self, self.activeAttempt == attempt else { return }
-                    self.logger.error("diagnostic request send failed: \(String(describing: error), privacy: .public)")
+                    transportLogger.error("diagnostic request send failed: \(String(describing: error), privacy: .public)")
                     self.finish(attempt: attempt, status: "Failed: diagnostic request not sent: \(error)", cancelConnection: true)
                 }
                 return
@@ -162,7 +168,7 @@ final class ChannelBindingClientModel: ObservableObject {
                 DispatchQueue.main.async {
                     guard let self, self.activeAttempt == attempt, self.connection === connection else { return }
                     guard error == nil, let data, data.count == 32, let localExporter = self.localExporter else {
-                        self.logger.error("diagnostic response missing or invalid: \(String(describing: error), privacy: .public)")
+                        transportLogger.error("diagnostic response missing or invalid: \(String(describing: error), privacy: .public)")
                         self.finish(attempt: attempt, status: "Failed: no verified exporter response", cancelConnection: true)
                         return
                     }

@@ -232,6 +232,23 @@ After the Start/Cancel controls were separated, the maintainer repeated one clea
 
 The supplied temporary certificate was inspected and contained an IP SAN for `192.168.1.200`, `serverAuth`, and digital-signature/key-encipherment usage. This rules out a missing IP SAN as an explanation, but does not establish that an IP literal supplied as both `NWEndpoint.Host` and TLS server name behaves as required on iOS. Remaining hypotheses include IP-literal SNI/policy behavior, iOS-specific TLS negotiation or trust handling, and an interface-specific listener path. The next discriminating test is a fresh temporary certificate with a DNS SAN matching the Mac's mDNS hostname (for example, `MacName.local`), with that same hostname used for both the iOS host and TLS server name; verification must remain scoped to the supplied certificate and must not be disabled.
 
+### Queue assertion investigation
+
+The physical debugger stopped in `__dispatch_assert_queue_fail` while Network.framework callbacks were active. Source inspection found that the iOS TLS verification callback was scheduled on the experiment's serial Network.framework queue, while the callback directly accessed the `@MainActor` model's `Logger` property. That is an application-side executor mismatch and can trigger a libdispatch queue assertion before the verification log is emitted. The logger is now a process-scoped, non-actor-isolated value; the callback performs Security.framework verification on its configured callback queue and dispatches only the UI status update to the main queue. State, send, receive, timeout, and cancellation callbacks retain their existing MainActor guards.
+
+This correction is evidence-backed from the callback queue configuration and the direct MainActor access, but the original debugger backtrace was not captured in the repository. If the assertion recurs, capture the first application-owned frame with the LLDB procedure in the validation instructions before making further queue changes.
+
+For a repeatable debugger capture, pause on the assertion and run:
+
+```text
+breakpoint set --name __dispatch_assert_queue_fail
+continue
+thread backtrace all
+expr -l objc++ -- (const char *)dispatch_queue_get_label(NULL)
+```
+
+The required evidence is the first application-owned frame, its source line, and the current queue label. Do not continue past the assertion and infer the cause from the Network.framework frame alone.
+
 ## Security interpretation
 
 Even if a future runtime test produces equal values, that result would establish only a property of the same TLS session. It would not authenticate a MacDock device by itself, complete QR pairing, prove authorization, or replace identity signatures, SAS, two-sided confirmation, durable trust, revocation, and recovery.
