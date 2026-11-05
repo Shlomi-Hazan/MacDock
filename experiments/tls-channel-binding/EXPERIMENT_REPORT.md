@@ -179,6 +179,47 @@ The temporary PKCS#12 identity and DER trust anchor must be generated outside Gi
 
 The runtime currently performs server-certificate verification only: the client verifies the temporary server certificate against the supplied process-scoped DER anchor, while the server does not request client authentication. This is intentional for the feasibility probe and is not mutual device authentication.
 
+## Negative trust results
+
+The corrected local harness was exercised with temporary material outside the repository:
+
+| Case | Observed result | Interpretation |
+| --- | --- | --- |
+| Correct server certificate and matching scoped anchor | TLS ready; trust succeeded; exporter comparisons passed | Positive transport/binding evidence only |
+| Unrelated trust anchor | No TLS ready; no exporter result; bounded timeout | No success is reported; the run fails closed before comparison |
+| Server certificate for `wronghost` while the client requires `localhost` | Verify callback ran and failed; client reported `-9808` and server `-9825`; no exporter result | Hostname/certificate identity rejection |
+| Expired certificate | Not executed in this local run | Must be tested before treating the negative matrix as complete |
+
+The negative cases distinguish handshake rejection from an application-level exporter mismatch. A failed handshake never reaches exporter comparison and cannot produce a successful diagnostic result. Timeout and cancellation remain bounded by the runtime harness. A new local exchange creates fresh Network.framework connections and the observed cross-session value differed; no exporter bytes are retained after the exchange.
+
+## Isolated iOS target
+
+The directly runnable iOS experiment is located at [`iOS/TLSChannelBindingClient.xcodeproj`](iOS/TLSChannelBindingClient.xcodeproj). It is independent of `MacDockiOS` and contains only a SwiftUI form with:
+
+- Host/IP, port, and TLS server-name fields.
+- A public test-certificate PEM field; no private key or password is accepted.
+- Start and Cancel actions.
+- A bounded 10-second timeout.
+- TLS 1.3 verification against the supplied process-scoped certificate anchor.
+- In-memory exporter derivation and comparison against the Mac response.
+- No background modes, persistence, pairing, trust records, or control commands.
+
+The target builds for the iOS Simulator and generic iOS device with signing disabled. A physical-device run still requires normal local signing and a public certificate matching the temporary Mac listener identity. The application does not embed a production or reusable trust root; the maintainer pastes only the public temporary certificate for the current experiment.
+
+The Mac probe also provides a limited `--listen` mode. It accepts the fixed `MDCB` diagnostic request and returns only the in-memory exporter value over the already verified TLS channel, then closes the connection. It is not a general transport or command endpoint.
+
+Example Mac listener command:
+
+```sh
+swift run TLSChannelBindingProbe --runtime --listen \
+  --p12 /private/tmp/<temporary-directory>/server.p12 \
+  --password-file /private/tmp/<temporary-directory>/password.txt \
+  --ca-cert /private/tmp/<temporary-directory>/server.der \
+  --port 4433 --duration 120
+```
+
+For a physical iPhone, use the Mac's local hostname or address in the app, set the TLS server name to the certificate SAN, paste the public certificate PEM, and grant Local Network permission if iOS requests it. No physical iPhone result is claimed by this report.
+
 ## Security interpretation
 
 Even if a future runtime test produces equal values, that result would establish only a property of the same TLS session. It would not authenticate a MacDock device by itself, complete QR pairing, prove authorization, or replace identity signatures, SAS, two-sided confirmation, durable trust, revocation, and recovery.

@@ -151,6 +151,8 @@ The runtime extension was first executed with a temporary self-signed server cer
 
 The same experiment was then repeated with a temporary certificate explicitly containing `subjectAltName=DNS:localhost,IP:127.0.0.1`, `keyUsage=digitalSignature,keyEncipherment`, and `extendedKeyUsage=serverAuth`. The listener and both connections reached `ready`; scoped trust evaluation succeeded; same-session exporter values were equal; separate sessions, alternate labels, and alternate contexts produced different values. This is executed Mac-to-Mac feasibility evidence only. Certificate rejection, iOS runtime behavior, minimum-OS compatibility, physical-device behavior, and independent cryptographic review remain outstanding. Candidate A is therefore supported for continued formal specification and review, not approved for production pairing.
 
+The local negative matrix additionally exercised an unrelated trust anchor and a `wronghost` certificate. Both failed closed without exporter success; the hostname mismatch reached the verify callback and produced certificate errors. Expired-certificate behavior and physical Mac-to-iPhone exporter equality remain untested. An isolated iOS target now exists for that next validation step, but compilation is not runtime evidence.
+
 ## Candidate transcript format
 
 The following is an illustrative encoding proposal, not a cryptographic test vector or accepted wire format. It uses a length-delimited binary structure so concatenation is unambiguous. Every integer is unsigned big-endian; every byte string is prefixed by a four-byte length; text fields are UTF-8 and are only used where the field definition permits them.

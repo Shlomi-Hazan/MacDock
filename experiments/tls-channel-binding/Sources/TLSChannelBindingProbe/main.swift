@@ -258,6 +258,59 @@ private func argument(_ name: String) -> String? {
     return CommandLine.arguments[index + 1]
 }
 
+private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInterval) throws {
+    let serverTLS = TLSChannelBindingProbe.makeTLSOptions(identity: identity.value, requirePeerAuthentication: false)
+    let parameters = NWParameters(tls: serverTLS, tcp: NWProtocolTCP.Options())
+    let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
+    let finished = DispatchSemaphore(value: 0)
+    let accepted = ConnectionBox()
+
+    listener.stateUpdateHandler = { state in
+        print("listener state: \(state)")
+        if case .failed(let error) = state {
+            print("listener failure: \(error)")
+            finished.signal()
+        }
+    }
+    listener.newConnectionHandler = { connection in
+        accepted.value = connection
+        print("listener accepted connection")
+        connection.stateUpdateHandler = { state in
+            print("server connection state: \(state)")
+            guard case .ready = state,
+                  let metadata = metadata(for: connection),
+                  let exporter = TLSChannelBindingProbe.deriveExporterLikeValue(from: metadata) else { return }
+            let hello = Data("MDCB".utf8)
+            connection.receive(minimumIncompleteLength: hello.count, maximumLength: hello.count) { data, _, _, error in
+                guard error == nil, data == hello else {
+                    print("server diagnostic request rejected")
+                    connection.cancel()
+                    finished.signal()
+                    return
+                }
+                connection.send(content: exporter, completion: .contentProcessed { error in
+                    if let error {
+                        print("server exporter response failure: \(error)")
+                    } else {
+                        print("server exporter response sent")
+                    }
+                    connection.cancel()
+                    finished.signal()
+                })
+            }
+        }
+        connection.start(queue: queue)
+    }
+    listener.start(queue: queue)
+    if case .success = finished.wait(timeout: .now() + duration) {
+        accepted.value?.cancel()
+    } else {
+        print("listener timeout: no completed diagnostic exchange")
+    }
+    accepted.value?.cancel()
+    listener.cancel()
+}
+
 @main
 struct Main {
     static func main() {
@@ -276,6 +329,12 @@ struct Main {
         do {
             let identity = try loadIdentity(p12URL: URL(fileURLWithPath: p12), passwordURL: URL(fileURLWithPath: password))
             let anchor = try loadCertificate(url: URL(fileURLWithPath: ca))
+            if CommandLine.arguments.contains("--listen") {
+                let port = UInt16(argument("--port") ?? "4433") ?? 4433
+                let duration = TimeInterval(argument("--duration") ?? "120") ?? 120
+                try runListener(identity: identity, port: port, duration: duration)
+                return
+            }
             guard let first = try runExchange(identity: identity, anchor: anchor),
                   let second = try runExchange(identity: identity, anchor: anchor) else {
                 print("runtime exchange failed: no verified exporter result")
