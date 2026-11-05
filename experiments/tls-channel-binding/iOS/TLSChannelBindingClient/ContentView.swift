@@ -11,6 +11,7 @@ final class ChannelBindingClientModel: ObservableObject {
     @Published var serverName = ""
     @Published var anchorPEM = ""
     @Published private(set) var status = "Idle"
+    @Published private(set) var isRunning = false
 
     private var connection: NWConnection?
     private var localExporter: Data?
@@ -40,6 +41,7 @@ final class ChannelBindingClientModel: ObservableObject {
         }
 
         activeAttempt = attempt
+        isRunning = true
         status = "Connecting (unverified candidate)"
         logger.info("starting transport attempt")
         let options = NWProtocolTLS.Options()
@@ -131,6 +133,7 @@ final class ChannelBindingClientModel: ObservableObject {
         timeoutTask?.cancel()
         timeoutTask = nil
         activeAttempt = nil
+        isRunning = false
         let currentConnection = connection
         connection = nil
         localExporter = nil
@@ -225,9 +228,17 @@ struct ContentView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            HStack {
+            Section("Actions") {
                 Button("Start experiment", action: model.start)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isRunning)
+                    .accessibilityIdentifier("start-experiment")
+            }
+            Section {
                 Button("Cancel", role: .cancel, action: model.cancel)
+                    .buttonStyle(.bordered)
+                    .disabled(!model.isRunning)
+                    .accessibilityIdentifier("cancel-experiment")
             }
         }
         .navigationTitle("TLS Channel Binding")
