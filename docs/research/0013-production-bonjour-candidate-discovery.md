@@ -1,7 +1,7 @@
 # Production Bonjour Candidate Discovery
 
 - Issue: [#39](https://github.com/Shlomi-Hazan/MacDock/issues/39)
-- Status: Implementation proposal and validation plan
+- Status: Implemented; physical validation recorded
 - Service type: `_macdock._tcp`
 - Scope: untrusted candidate discovery only
 
@@ -24,13 +24,24 @@ Candidate identifiers use bounded service name, type, and domain fields. Interfa
 
 The shared reducer covers browser start, ready, waiting, failure, cancellation, candidate appearance/disappearance, duplicate suppression, bounded candidate count, and retry. The iOS coordinator uses a generation counter so callbacks from a cancelled or superseded browser cannot update the current state.
 
-Waiting and failure are intentionally presented as availability states. The UI does not claim that a particular error proves Local Network denial, because Network.framework state alone may not uniquely identify the cause.
+Waiting and failure are intentionally presented as availability states. The UI does not claim that a particular error proves Local Network denial, because Network.framework state alone may not uniquely identify the cause. The permission-revocation observation therefore remains a generic waiting/unavailable state, not a definitive permission diagnosis.
 
 ## Validation
 
 Automated reducer tests cover candidate appearance and disappearance, duplicate advertisements, stale callbacks after cancellation, retry after failure, bounded metadata, and the invariant that discovery remains untrusted.
 
-The required physical-device validation is not claimed here. It must be performed by the maintainer on a Mac and iPhone on the same local Wi-Fi.
+### Maintainer-reported physical-device evidence
+
+The maintainer ran the experiment on a physical Mac and iPhone connected to the same local Wi-Fi. These are maintainer-reported observations, not automated or independently tool-executed tests:
+
+1. With MacDockMac running, the iPhone displayed `Discovery: Ready`, `MacDock Mac`, and `Untrusted candidate`.
+2. After quitting MacDockMac, the candidate disappeared from the iPhone.
+3. After restarting MacDockMac, the candidate reappeared automatically without pressing Retry.
+4. After Local Network permission was revoked on the iPhone, the candidate disappeared.
+5. The iPhone displayed `Discovery: Waiting for local network` and `No untrusted Mac candidates visible`.
+6. After Local Network permission was restored, discovery recovered automatically without pressing Retry.
+
+This evidence demonstrates candidate discovery, disappearance, rediscovery, and safe permission-state presentation. It does not demonstrate peer authentication, secure transport, pairing, trusted identity, authorization, or application control.
 
 ## Maintainer physical test procedure
 
@@ -42,7 +53,7 @@ The required physical-device validation is not claimed here. It must be performe
 6. If needed, deny Local Network access in Settings > Privacy & Security > Local Network, relaunch MacDockiOS, and confirm the UI reports an unavailable/waiting state without claiming a specific cause.
 7. Restore Local Network access, relaunch the iOS app, and confirm discovery can be retried.
 
-The test does not validate transport connectivity, TLS, pairing, authentication, authorization, background behavior, or application control. Do not record a physical result until the maintainer performs the steps.
+The test procedure does not validate transport connectivity, TLS, pairing, authentication, authorization, background behavior, or application control. No additional physical scenarios are claimed beyond the observations above.
 
 ## Security and privacy review
 
