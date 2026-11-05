@@ -104,6 +104,67 @@ private final class ConnectionBox: @unchecked Sendable {
     }
 }
 
+private final class ListenerSession: @unchecked Sendable {
+    private let lock = NSLock()
+    private let connection: NWConnection
+    private let finished: DispatchSemaphore
+    private var exchangeStarted = false
+    private var didFinish = false
+    private var timeoutWorkItem: DispatchWorkItem?
+
+    init(connection: NWConnection, finished: DispatchSemaphore) {
+        self.connection = connection
+        self.finished = finished
+    }
+
+    func beginExchange() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard !didFinish, !exchangeStarted else { return false }
+        exchangeStarted = true
+        return true
+    }
+
+    func scheduleTimeout(on queue: DispatchQueue, after delay: TimeInterval) {
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.finish(reason: "server diagnostic exchange timeout")
+        }
+        lock.lock()
+        timeoutWorkItem = workItem
+        lock.unlock()
+        queue.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    func finish(reason: String) {
+        lock.lock()
+        guard !didFinish else {
+            lock.unlock()
+            return
+        }
+        didFinish = true
+        timeoutWorkItem?.cancel()
+        lock.unlock()
+        print(reason)
+        connection.cancel()
+        finished.signal()
+    }
+}
+
+private final class ListenerSessionBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue: ListenerSession?
+
+    var value: ListenerSession? {
+        get {
+            lock.lock(); defer { lock.unlock() }
+            return storedValue
+        }
+        set {
+            lock.lock(); defer { lock.unlock() }
+            storedValue = newValue
+        }
+    }
+}
+
 private final class VerificationDiagnostics: @unchecked Sendable {
     private let lock = NSLock()
     private var callbackCount = 0
@@ -164,6 +225,13 @@ private func configureScopedVerification(
         let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
         let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)
         let policyStatus = SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, "localhost" as CFString))
+        guard anchorStatus == errSecSuccess,
+              anchorOnlyStatus == errSecSuccess,
+              policyStatus == errSecSuccess else {
+            print("TLS verification result: configuration failure; anchorStatus=\(anchorStatus); anchorOnlyStatus=\(anchorOnlyStatus); policyStatus=\(policyStatus)")
+            complete(false)
+            return
+        }
         var error: CFError?
         let trusted = SecTrustEvaluateWithError(trustReference, &error)
         if let error {
@@ -264,6 +332,7 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
     let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
     let finished = DispatchSemaphore(value: 0)
     let accepted = ConnectionBox()
+    let sessionBox = ListenerSessionBox()
 
     listener.stateUpdateHandler = { state in
         print("listener state: \(state)")
@@ -274,18 +343,20 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
     }
     listener.newConnectionHandler = { connection in
         accepted.value = connection
+        let acceptedSession = ListenerSession(connection: connection, finished: finished)
+        sessionBox.value = acceptedSession
         print("listener accepted connection")
         connection.stateUpdateHandler = { state in
             print("server connection state: \(state)")
-            guard case .ready = state,
+            guard case .ready = state, acceptedSession.beginExchange(),
                   let metadata = metadata(for: connection),
                   let exporter = TLSChannelBindingProbe.deriveExporterLikeValue(from: metadata) else { return }
+            acceptedSession.scheduleTimeout(on: queue, after: 10)
             let hello = Data("MDCB".utf8)
             connection.receive(minimumIncompleteLength: hello.count, maximumLength: hello.count) { data, _, _, error in
                 guard error == nil, data == hello else {
                     print("server diagnostic request rejected")
-                    connection.cancel()
-                    finished.signal()
+                    acceptedSession.finish(reason: "server diagnostic request rejected")
                     return
                 }
                 connection.send(content: exporter, completion: .contentProcessed { error in
@@ -294,8 +365,7 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
                     } else {
                         print("server exporter response sent")
                     }
-                    connection.cancel()
-                    finished.signal()
+                    acceptedSession.finish(reason: error == nil ? "server diagnostic exchange complete" : "server diagnostic exchange failed")
                 })
             }
         }
@@ -303,11 +373,11 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
     }
     listener.start(queue: queue)
     if case .success = finished.wait(timeout: .now() + duration) {
-        accepted.value?.cancel()
+        sessionBox.value?.finish(reason: "listener session finished")
     } else {
         print("listener timeout: no completed diagnostic exchange")
+        sessionBox.value?.finish(reason: "listener duration expired")
     }
-    accepted.value?.cancel()
     listener.cancel()
 }
 

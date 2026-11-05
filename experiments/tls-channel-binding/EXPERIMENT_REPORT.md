@@ -220,6 +220,12 @@ swift run TLSChannelBindingProbe --runtime --listen \
 
 For a physical iPhone, use the Mac's local hostname or address in the app, set the TLS server name to the certificate SAN, paste the public certificate PEM, and grant Local Network permission if iOS requests it. No physical iPhone result is claimed by this report.
 
+### Maintainer-reported single-attempt physical failure
+
+The maintainer performed one clean physical Mac-to-iPhone attempt on an iPhone 14 Pro Max running iOS 27.0.1. Bonjour discovery succeeded and the iOS app installed and launched, but the final UI state was `Cancelled`. The Mac listener reported that it was ready, accepted the TCP connection, and then observed the server connection fail with POSIX error 61 before TLS reached `ready`. No cross-device exporter comparison was observed. This does not establish the root cause; POSIX error 61 alone is not sufficient to classify the failure as certificate, trust, or transport configuration failure.
+
+The iOS client now keeps one attempt generation, rejects concurrent starts, preserves the first terminal failure or timeout, cancels its timeout task after terminal completion, ignores stale callbacks, logs non-sensitive connection and verification diagnostics, and checks all `SecTrust` configuration status values before completing verification. The Mac listener retains each accepted connection in a per-connection session, prevents duplicate receive setup, applies a bounded idle timeout, and performs deterministic cleanup. These changes improve diagnosis and lifecycle correctness but do not claim a successful physical TLS handshake.
+
 ## Security interpretation
 
 Even if a future runtime test produces equal values, that result would establish only a property of the same TLS session. It would not authenticate a MacDock device by itself, complete QR pairing, prove authorization, or replace identity signatures, SAS, two-sided confirmation, durable trust, revocation, and recovery.

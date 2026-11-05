@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import OSLog
 import Security
 import SwiftUI
 
@@ -14,19 +15,33 @@ final class ChannelBindingClientModel: ObservableObject {
     private var connection: NWConnection?
     private var localExporter: Data?
     private var timeoutTask: Task<Void, Never>?
+    private var attemptGeneration: UInt64 = 0
+    private var activeAttempt: UInt64?
     private let queue = DispatchQueue(label: "com.macdock.experiment.tls-channel-binding.ios")
+    private let logger = Logger(subsystem: "com.macdock.experiment.tls-channel-binding.ios", category: "transport")
     private let label = "com.macdock.experiment.channel-binding.v1"
     private let context = Data("macdock-channel-binding-context-v1".utf8)
 
     func start() {
-        cancel()
+        guard connection == nil else {
+            status = "Already running: cancel before starting again"
+            return
+        }
+        guard attemptGeneration < UInt64.max else {
+            status = "Failed: transport attempt limit reached"
+            return
+        }
+        attemptGeneration += 1
+        let attempt = attemptGeneration
         guard let portNumber = UInt16(port), !host.isEmpty, !serverName.isEmpty,
               let anchor = makeCertificate(from: anchorPEM) else {
             status = "Configuration incomplete: host, port, server name, and public anchor are required"
             return
         }
 
+        activeAttempt = attempt
         status = "Connecting (unverified candidate)"
+        logger.info("starting transport attempt")
         let options = NWProtocolTLS.Options()
         sec_protocol_options_set_peer_authentication_required(options.securityProtocolOptions, true)
         sec_protocol_options_set_min_tls_protocol_version(options.securityProtocolOptions, .TLSv13)
@@ -37,13 +52,26 @@ final class ChannelBindingClientModel: ObservableObject {
         }
         sec_protocol_options_set_verify_block(options.securityProtocolOptions, { [weak self] _, trust, complete in
             let trustReference = sec_trust_copy_ref(trust).takeRetainedValue()
-            SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
-            SecTrustSetAnchorCertificatesOnly(trustReference, true)
-            SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, expectedServerName as CFString))
+            let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
+            let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)
+            let policyStatus = SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, expectedServerName as CFString))
+            guard anchorStatus == errSecSuccess,
+                  anchorOnlyStatus == errSecSuccess,
+                  policyStatus == errSecSuccess else {
+                self?.logger.error("TLS verification configuration failed: anchor=\(anchorStatus, privacy: .public) anchorOnly=\(anchorOnlyStatus, privacy: .public) policy=\(policyStatus, privacy: .public)")
+                complete(false)
+                return
+            }
             var error: CFError?
             let trusted = SecTrustEvaluateWithError(trustReference, &error)
-            DispatchQueue.main.async {
-                self?.status = trusted ? "TLS certificate verified" : "TLS certificate rejected"
+            if let error {
+                self?.logger.error("TLS verification failed: domain=\(CFErrorGetDomain(error) as String, privacy: .public) code=\(CFErrorGetCode(error), privacy: .public)")
+            } else {
+                self?.logger.info("TLS verification callback completed: \(trusted ? "success" : "failure", privacy: .public)")
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.activeAttempt == attempt else { return }
+                self.status = trusted ? "TLS certificate verified" : "TLS certificate rejected"
             }
             complete(trusted)
         }, queue)
@@ -53,20 +81,23 @@ final class ChannelBindingClientModel: ObservableObject {
         connection = newConnection
         newConnection.stateUpdateHandler = { [weak self] state in
             DispatchQueue.main.async {
+                guard let self, self.activeAttempt == attempt, self.connection === newConnection else { return }
+                self.logger.info("connection state: \(String(describing: state), privacy: .public)")
                 switch state {
                 case .preparing:
-                    self?.status = "TLS preparing"
+                    self.status = "TLS preparing"
                 case .ready:
-                    self?.status = "TLS ready; deriving channel binding"
-                    self?.deriveAndRequestResponse(on: newConnection)
-                case .waiting(let error):
-                    self?.status = "Waiting: (error)"
-                case .failed(let error):
-                    self?.status = "TLS/transport failed: (error)"
-                case .cancelled:
-                    if self?.status != "Diagnostic exchange complete" {
-                        self?.status = "Cancelled"
+                    self.status = "TLS ready; deriving channel binding"
+                    if self.localExporter == nil {
+                        self.deriveAndRequestResponse(on: newConnection, attempt: attempt)
                     }
+                case .waiting(let error):
+                    self.status = "Waiting: \(error)"
+                case .failed(let error):
+                    self.logger.error("TLS/transport failure: \(String(describing: error), privacy: .public)")
+                    self.finish(attempt: attempt, status: "TLS/transport failed: \(error)", cancelConnection: false)
+                case .cancelled:
+                    self.finish(attempt: attempt, status: "Transport closed before verified exchange", cancelConnection: false)
                 default:
                     break
                 }
@@ -76,41 +107,66 @@ final class ChannelBindingClientModel: ObservableObject {
         timeoutTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled else { return }
-            self?.status = "Timeout: no verified exchange"
-            self?.connection?.cancel()
+            self?.handleTimeout(attempt: attempt)
         }
     }
 
     func cancel() {
-        timeoutTask?.cancel()
-        timeoutTask = nil
-        connection?.cancel()
-        connection = nil
-        localExporter = nil
-        if status != "Idle" { status = "Cancelled" }
+        guard let attempt = activeAttempt else {
+            if status != "Idle" { status = "Cancelled" }
+            return
+        }
+        logger.info("user cancelled transport attempt")
+        finish(attempt: attempt, status: "Cancelled", cancelConnection: true)
     }
 
-    private func deriveAndRequestResponse(on connection: NWConnection) {
+    private func handleTimeout(attempt: UInt64) {
+        guard activeAttempt == attempt else { return }
+        logger.error("transport timeout")
+        finish(attempt: attempt, status: "Timeout: no verified exchange", cancelConnection: true)
+    }
+
+    private func finish(attempt: UInt64, status terminalStatus: String, cancelConnection: Bool) {
+        guard activeAttempt == attempt else { return }
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        activeAttempt = nil
+        let currentConnection = connection
+        connection = nil
+        localExporter = nil
+        self.status = terminalStatus
+        if cancelConnection { currentConnection?.cancel() }
+    }
+
+    private func deriveAndRequestResponse(on connection: NWConnection, attempt: UInt64) {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata,
               let exporter = deriveExporter(from: metadata) else {
-            status = "Failed: TLS metadata unavailable"
-            connection.cancel()
+            finish(attempt: attempt, status: "Failed: TLS metadata unavailable", cancelConnection: true)
             return
         }
         localExporter = exporter
         connection.send(content: Data("MDCB".utf8), completion: .contentProcessed { [weak self] error in
             if let error {
-                DispatchQueue.main.async { self?.status = "Failed: diagnostic request not sent ((error))" }
+                DispatchQueue.main.async {
+                    guard let self, self.activeAttempt == attempt else { return }
+                    self.logger.error("diagnostic request send failed: \(String(describing: error), privacy: .public)")
+                    self.finish(attempt: attempt, status: "Failed: diagnostic request not sent: \(error)", cancelConnection: true)
+                }
                 return
             }
             connection.receive(minimumIncompleteLength: 32, maximumLength: 32) { data, _, _, error in
                 DispatchQueue.main.async {
-                    guard error == nil, let data, let localExporter = self?.localExporter else {
-                        self?.status = "Failed: no verified exporter response"
+                    guard let self, self.activeAttempt == attempt, self.connection === connection else { return }
+                    guard error == nil, let data, data.count == 32, let localExporter = self.localExporter else {
+                        self.logger.error("diagnostic response missing or invalid: \(String(describing: error), privacy: .public)")
+                        self.finish(attempt: attempt, status: "Failed: no verified exporter response", cancelConnection: true)
                         return
                     }
-                    self?.status = data == localExporter ? "Diagnostic exchange complete (unverified)" : "Failed: exporter mismatch"
-                    connection.cancel()
+                    if data == localExporter {
+                        self.finish(attempt: attempt, status: "Diagnostic exchange complete (unverified)", cancelConnection: true)
+                    } else {
+                        self.finish(attempt: attempt, status: "Failed: exporter mismatch", cancelConnection: true)
+                    }
                 }
             }
         })
