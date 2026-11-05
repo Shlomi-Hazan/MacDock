@@ -9,6 +9,39 @@ private let transportLogger = Logger(
     category: "transport"
 )
 
+/// Installs a verification callback created outside any actor-isolated context.
+/// The callback performs only trust evaluation and invokes Network.framework's
+/// completion handler on the queue supplied by Network.framework.
+private func installScopedTLSVerification(
+    on options: NWProtocolTLS.Options,
+    anchor: SecCertificate,
+    expectedServerName: String,
+    callbackQueue: DispatchQueue
+) {
+    sec_protocol_options_set_verify_block(options.securityProtocolOptions, { _, trust, complete in
+        transportLogger.info("TLS verification callback invoked")
+        let trustReference = sec_trust_copy_ref(trust).takeRetainedValue()
+        let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
+        let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)
+        let policyStatus = SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, expectedServerName as CFString))
+        guard anchorStatus == errSecSuccess,
+              anchorOnlyStatus == errSecSuccess,
+              policyStatus == errSecSuccess else {
+            transportLogger.error("TLS verification configuration failed: anchor=\(anchorStatus, privacy: .public) anchorOnly=\(anchorOnlyStatus, privacy: .public) policy=\(policyStatus, privacy: .public)")
+            complete(false)
+            return
+        }
+        var error: CFError?
+        let trusted = SecTrustEvaluateWithError(trustReference, &error)
+        if let error {
+            transportLogger.error("TLS verification failed: domain=\(CFErrorGetDomain(error) as String, privacy: .public) code=\(CFErrorGetCode(error), privacy: .public)")
+        } else {
+            transportLogger.info("TLS verification callback completed: \(trusted ? "success" : "failure", privacy: .public)")
+        }
+        complete(trusted)
+    }, callbackQueue)
+}
+
 @MainActor
 final class ChannelBindingClientModel: ObservableObject {
     @Published var host = ""
@@ -56,34 +89,12 @@ final class ChannelBindingClientModel: ObservableObject {
         serverName.withCString { name in
             sec_protocol_options_set_tls_server_name(options.securityProtocolOptions, name)
         }
-        sec_protocol_options_set_verify_block(options.securityProtocolOptions, { [weak self] _, trust, complete in
-            // This callback runs on `queue`, not on the MainActor. Do not access
-            // MainActor-isolated model state from here.
-            transportLogger.info("TLS verification callback invoked")
-            let trustReference = sec_trust_copy_ref(trust).takeRetainedValue()
-            let anchorStatus = SecTrustSetAnchorCertificates(trustReference, [anchor] as CFArray)
-            let anchorOnlyStatus = SecTrustSetAnchorCertificatesOnly(trustReference, true)
-            let policyStatus = SecTrustSetPolicies(trustReference, SecPolicyCreateSSL(true, expectedServerName as CFString))
-            guard anchorStatus == errSecSuccess,
-                  anchorOnlyStatus == errSecSuccess,
-                  policyStatus == errSecSuccess else {
-                transportLogger.error("TLS verification configuration failed: anchor=\(anchorStatus, privacy: .public) anchorOnly=\(anchorOnlyStatus, privacy: .public) policy=\(policyStatus, privacy: .public)")
-                complete(false)
-                return
-            }
-            var error: CFError?
-            let trusted = SecTrustEvaluateWithError(trustReference, &error)
-            if let error {
-                transportLogger.error("TLS verification failed: domain=\(CFErrorGetDomain(error) as String, privacy: .public) code=\(CFErrorGetCode(error), privacy: .public)")
-            } else {
-                transportLogger.info("TLS verification callback completed: \(trusted ? "success" : "failure", privacy: .public)")
-            }
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.activeAttempt == attempt else { return }
-                self.status = trusted ? "TLS certificate verified" : "TLS certificate rejected"
-            }
-            complete(trusted)
-        }, queue)
+        installScopedTLSVerification(
+            on: options,
+            anchor: anchor,
+            expectedServerName: expectedServerName,
+            callbackQueue: queue
+        )
 
         let nwPort = NWEndpoint.Port(rawValue: portNumber)!
         let newConnection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: NWParameters(tls: options, tcp: NWProtocolTCP.Options()))
