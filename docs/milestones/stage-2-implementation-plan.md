@@ -13,16 +13,18 @@ The plan is intentionally incremental for a single developer. Each Issue has a r
 ## Dependency order
 
 ```text
-Issue #38  Security specification and trust gates
+Issue #38  Security requirements baseline
    ├── Issue #39  Bonjour candidate discovery
-   ├── Issue #40  Network.framework transport ──┐
-   └── Issue #41  Device identity and Keychain  │
-                    └── Issue #42  QR pairing ──┤
-                                      └── Issue #43  Authenticated sessions
-                                                        ├── Issue #44  Trust recovery
-Issue #40 ──────────────────────────────────────────────┘
+   ├── Issue #40  Network.framework transport ───────────────┐
+   └── Issue #41  Identity and secure-storage design          │
+                         └── Issue #52  Pairing construction gate
+                                      └── Issue #53  Identity/Keychain adapters
+                                                   └── Issue #42  QR pairing
+                                                                    └── Issue #43  Authenticated sessions
+                                                                                  ├── Issue #44  Trust recovery
+Issue #40 ─────────────────────────────────────────────────────────────────────────┘
 Issue #43 + #44 ── Issue #45  Reconnect and resynchronization
-Issues #38–#45 ── Issue #46  Stage 2 integration review
+Issues #38–#45, #52, #53 ── Issue #46  Stage 2 integration review
 ```
 
 Issue #39 may prototype untrusted discovery after the security boundary is understood. Issue #40 may implement non-authorizing transport seams. Issues #42–#45 must not create trusted sessions or control endpoints until the preceding security decisions are reviewed.
@@ -34,9 +36,11 @@ Issue #39 may prototype untrusted discovery after the security boundary is under
 | [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38) | Pairing security specification and trust gates | Ready | First security review; ADR 0003 remains Proposed |
 | [#39](https://github.com/Shlomi-Hazan/MacDock/issues/39) | Production Bonjour candidate discovery | Backlog | Visibility only; no identity or trust |
 | [#40](https://github.com/Shlomi-Hazan/MacDock/issues/40) | Bounded Network.framework transport | Backlog | Transport-only state; no authorization |
-| [#41](https://github.com/Shlomi-Hazan/MacDock/issues/41) | Device identity and secure key storage | Backlog | Key lifecycle and recovery design |
-| [#42](https://github.com/Shlomi-Hazan/MacDock/issues/42) | QR-first pairing and two-sided confirmation | Backlog | Requires reviewed specification and identity lifecycle |
-| [#43](https://github.com/Shlomi-Hazan/MacDock/issues/43) | Mutual authentication and authorized sessions | Backlog | Requires committed pairing and security review |
+| [#41](https://github.com/Shlomi-Hazan/MacDock/issues/41) | Device identity and secure key storage design | Done | Design baseline; implementation is tracked separately |
+| [#52](https://github.com/Shlomi-Hazan/MacDock/issues/52) | Pairing construction selection and review gate | In Progress | Must be explicitly accepted before pairing implementation |
+| [#53](https://github.com/Shlomi-Hazan/MacDock/issues/53) | Platform identity and Keychain adapters | Backlog | Requires #41 and the approved #52 construction |
+| [#42](https://github.com/Shlomi-Hazan/MacDock/issues/42) | QR-first pairing and two-sided confirmation | Backlog | Requires accepted #52 and completed #53 |
+| [#43](https://github.com/Shlomi-Hazan/MacDock/issues/43) | Mutual authentication and authorized sessions | Backlog | Requires #42, accepted #52, and completed #53 |
 | [#44](https://github.com/Shlomi-Hazan/MacDock/issues/44) | Trust persistence, revocation, and recovery | Backlog | Fail-closed changed-peer and lost-device behavior |
 | [#45](https://github.com/Shlomi-Hazan/MacDock/issues/45) | Reconnection and state resynchronization | Backlog | No stale-command replay; preserve authorization |
 | [#46](https://github.com/Shlomi-Hazan/MacDock/issues/46) | Integration, physical testing, and acceptance review | Backlog | Stage 2 decision before Stage 3 |
