@@ -18,5 +18,11 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MacDock uses the local network to show nearby Macs that advertise the MacDock service.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_macdock._tcp</string>
+	</array>
 </dict>
 </plist>
