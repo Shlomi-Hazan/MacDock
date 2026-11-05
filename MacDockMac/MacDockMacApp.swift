@@ -5,11 +5,16 @@ import MacDockShared
 @MainActor
 private final class DiagnosticConnectionSession {
     var decoder = ProtocolFrameDecoder()
+    var timeoutWorkItem: DispatchWorkItem?
+    var isFinished = false
 }
 
 @MainActor
 final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
+    private static let maximumConcurrentDiagnosticConnections = 4
+    private static let diagnosticIdleTimeout: TimeInterval = 10
     private var listener: NWListener?
+    private var activeConnectionIDs = Set<ObjectIdentifier>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -17,7 +22,7 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
             listener.service = NWListener.Service(name: "MacDock Mac", type: "_macdock._tcp")
             listener.newConnectionHandler = { [weak self] connection in
                 Task { @MainActor [weak self] in
-                    self?.handleDiagnosticConnection(connection)
+                    self?.acceptDiagnosticConnection(connection)
                 }
             }
             listener.stateUpdateHandler = { state in
@@ -33,17 +38,50 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         listener?.cancel()
         listener = nil
+        activeConnectionIDs.removeAll()
     }
 
-    private func handleDiagnosticConnection(_ connection: NWConnection) {
+    private func acceptDiagnosticConnection(_ connection: NWConnection) {
+        let connectionID = ObjectIdentifier(connection)
+        guard activeConnectionIDs.count < Self.maximumConcurrentDiagnosticConnections else {
+            connection.cancel()
+            return
+        }
+
+        activeConnectionIDs.insert(connectionID)
         let session = DiagnosticConnectionSession()
+        session.timeoutWorkItem = DispatchWorkItem { [weak self, weak connection] in
+            Task { @MainActor [weak self, weak connection] in
+                guard let self, let connection else { return }
+                self.finishDiagnosticConnection(connection, session: session)
+            }
+        }
+        if let timeoutWorkItem = session.timeoutWorkItem {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.diagnosticIdleTimeout, execute: timeoutWorkItem)
+        }
+
         connection.stateUpdateHandler = { state in
             if case .failed = state {
-                connection.cancel()
+                Task { @MainActor [weak self, weak connection] in
+                    guard let self, let connection else { return }
+                    self.finishDiagnosticConnection(connection, session: session)
+                }
             }
         }
         connection.start(queue: .main)
         receiveDiagnostic(on: connection, session: session)
+    }
+
+    private func finishDiagnosticConnection(
+        _ connection: NWConnection,
+        session: DiagnosticConnectionSession
+    ) {
+        guard !session.isFinished else { return }
+        session.isFinished = true
+        session.timeoutWorkItem?.cancel()
+        session.timeoutWorkItem = nil
+        activeConnectionIDs.remove(ObjectIdentifier(connection))
+        connection.cancel()
     }
 
     private func receiveDiagnostic(
@@ -67,20 +105,23 @@ final class MacDockBonjourAdvertiser: NSObject, NSApplicationDelegate {
                             let acknowledgment = try ProtocolFrameCodec.encode(
                                 TransportDiagnosticCodec.acknowledgmentEnvelope()
                             )
-                            connection.send(content: acknowledgment, completion: .contentProcessed { _ in
-                                connection.cancel()
+                            connection.send(content: acknowledgment, completion: .contentProcessed { [weak self, weak connection] _ in
+                                Task { @MainActor [weak self, weak connection] in
+                                    guard let self, let connection else { return }
+                                    self.finishDiagnosticConnection(connection, session: session)
+                                }
                             })
                             return
                         }
                     }
                     if isComplete {
                         try session.decoder.finish()
-                        connection.cancel()
+                        self.finishDiagnosticConnection(connection, session: session)
                     } else {
                         self.receiveDiagnostic(on: connection, session: session)
                     }
                 } catch {
-                    connection.cancel()
+                    self.finishDiagnosticConnection(connection, session: session)
                 }
             }
         }
