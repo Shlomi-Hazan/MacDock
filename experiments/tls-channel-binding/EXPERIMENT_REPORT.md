@@ -82,7 +82,7 @@ xcrun swiftc -typecheck -parse-as-library \
 
 The expected output states that the API probe compiled and that no network connection was opened.
 
-An iOS app target is not included in this iteration. Running the same code on iOS requires a signed, isolated target and physical-device validation; a macOS SwiftPM build cannot establish iOS runtime behavior.
+The isolated iOS app target is included under `iOS/` and requires normal local signing for a device run. A macOS SwiftPM build cannot establish iOS runtime behavior.
 
 ## Results
 
@@ -147,7 +147,28 @@ For the corrected local Mac-to-Mac run:
 - Rejected peer-certificate behavior: **not demonstrated by this probe**.
 - Missing metadata and cancellation behavior: **not demonstrated**.
 
-No physical-device result is claimed.
+### Maintainer-reported physical Mac–iPhone result
+
+The maintainer completed the first successful physical cross-platform run using an iPhone 14 Pro Max and the Mac host `Shlomis-MacBook-Pro-2.local`. The test used TLS 1.3, a temporary test certificate with a matching DNS SAN, process-scoped certificate verification, and no system-wide trust anchor. The iPhone displayed:
+
+```text
+Diagnostic exchange complete (unverified)
+```
+
+The Mac listener reported:
+
+```text
+listener state: ready
+listener accepted connection
+server connection state: preparing
+server connection state: ready
+server TLS ready; retrieving connection metadata
+server TLS metadata ready; diagnostic receive started
+server exporter response sent
+server diagnostic exchange complete
+```
+
+This is maintainer-reported physical-device evidence, not a tool-executed test result. It demonstrates that the isolated iOS client and Mac listener completed the experimental TLS exchange and compared matching exporter-derived values for that TLS session. It does not establish device authentication, mutual authentication, QR pairing, durable trust, authorization, or production identity.
 
 ## Trust-anchor and verification handling
 
@@ -218,7 +239,7 @@ swift run TLSChannelBindingProbe --runtime --listen \
   --port 4433 --duration 120
 ```
 
-For a physical iPhone, use the Mac's local hostname or address in the app, set the TLS server name to the certificate SAN, paste the public certificate PEM, and grant Local Network permission if iOS requests it. No physical iPhone result is claimed by this report.
+For a physical iPhone, use the Mac's local hostname or address in the app, set the TLS server name to the certificate SAN, paste the public certificate PEM, and grant Local Network permission if iOS requests it. The first successful physical result is recorded above; the remaining negative and compatibility cases are still outstanding.
 
 ### Maintainer-reported single-attempt physical failure
 
@@ -236,7 +257,7 @@ The supplied temporary certificate was inspected and contained an IP SAN for `19
 
 The physical debugger stopped in `__dispatch_assert_queue_fail` while Network.framework callbacks were active. Source inspection found that the iOS TLS verification callback was scheduled on the experiment's serial Network.framework queue, while the callback directly accessed the `@MainActor` model's `Logger` property. That is an application-side executor mismatch and can trigger a libdispatch queue assertion before the verification log is emitted. The logger is now a process-scoped, non-actor-isolated value; the callback performs Security.framework verification on its configured callback queue and dispatches only the UI status update to the main queue. State, send, receive, timeout, and cancellation callbacks retain their existing MainActor guards.
 
-The maintainer's physical LLDB capture confirmed this application-side violation: `__dispatch_assert_queue_fail` led through Swift Concurrency executor checks to the application-owned verification closure, which was called from BoringSSL's asynchronous trust evaluation callback. The fix creates that closure in a top-level, non-actor-isolated helper and removes all model captures from it. If a different assertion recurs, capture the first application-owned frame with the LLDB procedure below before making further queue changes.
+The maintainer's physical LLDB capture confirmed this application-side violation: `__dispatch_assert_queue_fail` led through Swift Concurrency executor checks to the application-owned verification closure, which was called from BoringSSL's asynchronous trust evaluation callback. The fix creates that closure in a top-level, non-actor-isolated helper and removes all model captures from it. The subsequent successful physical run followed this correction. This confirms the executor violation as a cause of the debugger-stopped run; it does not establish that every earlier `preparing` timeout or connection failure had the same cause. If a different assertion recurs, capture the first application-owned frame with the LLDB procedure below before making further queue changes.
 
 For a repeatable debugger capture, pause on the assertion and run:
 
@@ -255,6 +276,16 @@ Even if a future runtime test produces equal values, that result would establish
 
 The future design must still address wrong-peer verification, channel substitution, unknown-key-share, role confusion, downgrade, replay, duplicate messages, and relay limitations. Matching TLS-derived values cannot repair an unreviewed identity or transcript construction.
 
+### Remaining cross-platform validation
+
+The following remain required before Candidate A can be treated as ready for formal construction approval:
+
+- Physical wrong-anchor and hostname-rejection tests, confirming fail-closed behavior on the iPhone path.
+- Physical reconnection, cancellation, and unexpected-closure tests.
+- An expired-certificate rejection test.
+- Runtime validation on the provisional macOS 14 and iOS 17 minimum versions; the successful run used a newer environment and does not establish minimum-OS compatibility.
+- Independent cryptographic review of the exact identity, transcript, channel-binding, SAS, and trust-commit construction.
+
 ## Conclusion
 
-**Candidate A local runtime feasibility is supported by executed Mac-to-Mac evidence, but cross-platform and security-design validation remain outstanding.** The corrected isolated fixture completed TLS 1.3, passed explicit scoped certificate verification, and produced matching same-session exporter values with different values across sessions, labels, and contexts. This does not establish device identity, pairing, authorization, mutual authentication, physical iPhone compatibility, macOS 14/iOS 17 runtime compatibility, or independent cryptographic approval.
+**Candidate A runtime feasibility is partially supported by executed Mac-to-Mac evidence and one maintainer-reported physical Mac–iPhone result, but construction and security approval remain outstanding.** The corrected isolated fixture completed TLS 1.3, passed explicit scoped certificate verification, and produced matching same-session exporter values with different values across sessions, labels, and contexts. The physical result extends feasibility evidence to the tested Mac/iPhone pair and temporary certificate configuration only. It does not establish device identity, pairing, authorization, mutual authentication, minimum-OS compatibility, or independent cryptographic approval.

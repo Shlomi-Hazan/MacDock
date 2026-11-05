@@ -16,7 +16,7 @@ The current recommendation is to investigate a TLS 1.3 transport combined with a
 | Claim | Classification |
 | --- | --- |
 | Network.framework can provide a TLS transport integration seam | Documentation-based; the Stage 0 transport experiment validated only a test transport and fingerprint check |
-| Public Security APIs expose TLS-derived secrets, peer public-key material, and certificate-chain access from protocol metadata | Documentation-based; exact macOS 14/iOS 17 availability and Swift integration remain to be compiled and exercised |
+| Public Security APIs expose TLS-derived secrets, peer public-key material, and certificate-chain access from protocol metadata | Documentation-based and exercised in the isolated probe; minimum macOS 14/iOS 17 runtime behavior remains unverified |
 | TLS 1.3 provides encrypted, integrity-protected records and a handshake transcript | Standards-based; see [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446.html) |
 | Apple platforms expose CryptoKit and device-dependent Secure Enclave APIs | Documentation-based; see [CryptoKit](https://developer.apple.com/documentation/cryptokit) and [SecureEnclave](https://developer.apple.com/documentation/cryptokit/secureenclave) |
 | A concrete MacDock pairing construction is secure | Not established; requires design selection, review, implementation, vectors, and device tests |
@@ -124,8 +124,8 @@ The `create_secret` functions are exporter-like public APIs and are the stronges
 
 ### What remains unverified
 
-- The repository has not compiled a targeted adapter against the macOS 14 and iOS 17 SDK interfaces for these functions.
-- No physical Mac/iPhone test has compared exporter-derived values across the two ends of the same TLS session.
+- The repository has compiled and exercised an isolated adapter against the installed SDK interfaces for these functions.
+- A maintainer-reported physical Mac/iPhone test compared exporter-derived values across the two ends of the same TLS session; this is not tool-executed evidence and does not establish production authentication.
 - No test has established behavior across reconnect, TLS resumption, early data, listener restart, or certificate/key replacement.
 - The relationship between an exporter-derived value and the selected long-term CryptoKit/Secure Enclave identity is not yet specified.
 - The public API surface does not remove the need for a reviewed certificate/public-key verification policy.
@@ -139,7 +139,7 @@ The `create_secret` functions are exporter-like public APIs and are the stronges
 | Mutual TLS device credentials | Certificate issuance, trust-anchor distribution, rotation, revocation, and recovery | Public APIs support the mechanics, but lifecycle is heavy and unreviewed |
 | Alternative reviewed handshake such as a concrete Noise pattern | Reviewed implementation/library, identity binding, transcript vectors, and integration with Network.framework | Fallback if TLS binding cannot meet the required properties |
 
-Candidate A therefore has **local Mac-to-Mac runtime feasibility evidence**, but still requires cross-platform testing and formal construction specification before any production implementation. No evidence justifies treating it as approved for production pairing.
+Candidate A therefore has **local Mac-to-Mac runtime feasibility evidence and one maintainer-reported physical Mac-to-iPhone runtime result**, but still requires negative physical trust tests, minimum-OS runtime validation, formal construction specification, and independent cryptographic review before any production implementation. No evidence justifies treating it as approved for production pairing.
 
 ## Issue #52 isolated API-feasibility evidence
 
@@ -149,9 +149,22 @@ The same source passed direct `swiftc -typecheck` against the installed iOS Simu
 
 The runtime extension was first executed with a temporary self-signed server certificate containing SAN entries but no explicit `keyUsage` or `extendedKeyUsage=serverAuth`; both endpoints remained in `preparing`, the verification callback was not invoked, and the run failed closed. This reproduced in an interactive Terminal, with private-key lookup and signing capability reported as available, so the earlier Keychain-prompt hypothesis is not supported.
 
-The same experiment was then repeated with a temporary certificate explicitly containing `subjectAltName=DNS:localhost,IP:127.0.0.1`, `keyUsage=digitalSignature,keyEncipherment`, and `extendedKeyUsage=serverAuth`. The listener and both connections reached `ready`; scoped trust evaluation succeeded; same-session exporter values were equal; separate sessions, alternate labels, and alternate contexts produced different values. This is executed Mac-to-Mac feasibility evidence only. Certificate rejection, iOS runtime behavior, minimum-OS compatibility, physical-device behavior, and independent cryptographic review remain outstanding. Candidate A is therefore supported for continued formal specification and review, not approved for production pairing.
+The same experiment was then repeated with a temporary certificate explicitly containing `subjectAltName=DNS:localhost,IP:127.0.0.1`, `keyUsage=digitalSignature,keyEncipherment`, and `extendedKeyUsage=serverAuth`. The listener and both connections reached `ready`; scoped trust evaluation succeeded; same-session exporter values were equal; separate sessions, alternate labels, and alternate contexts produced different values. This is executed Mac-to-Mac feasibility evidence only. A subsequent maintainer-reported physical Mac–iPhone run using `Shlomis-MacBook-Pro-2.local` and a temporary certificate with a matching DNS SAN displayed `Diagnostic exchange complete (unverified)` on the iPhone and logged the following on the Mac:
 
-The local negative matrix additionally exercised an unrelated trust anchor and a `wronghost` certificate. Both failed closed without exporter success; the hostname mismatch reached the verify callback and produced certificate errors. Expired-certificate behavior and physical Mac-to-iPhone exporter equality remain untested. An isolated iOS target now exists for that next validation step, but compilation is not runtime evidence.
+```text
+listener state: ready
+listener accepted connection
+server connection state: preparing
+server connection state: ready
+server TLS ready; retrieving connection metadata
+server TLS metadata ready; diagnostic receive started
+server exporter response sent
+server diagnostic exchange complete
+```
+
+This physical result demonstrates the isolated exporter comparison across the tested endpoints, not device authentication, pairing, authorization, or independent cryptographic approval. Physical wrong-anchor/hostname rejection, reconnection and cancellation, expired-certificate behavior, minimum-OS runtime compatibility, and independent cryptographic review remain outstanding. Candidate A is therefore supported for continued formal specification and review, not approved for production pairing.
+
+The local negative matrix additionally exercised an unrelated trust anchor and a `wronghost` certificate. Both failed closed without exporter success; the hostname mismatch reached the verify callback and produced certificate errors. Expired-certificate behavior and physical wrong-anchor/hostname rejection remain outstanding. The physical positive run is maintainer-reported evidence only; compilation and one successful run do not establish minimum-OS compatibility or construction approval.
 
 ## Candidate transcript format
 
