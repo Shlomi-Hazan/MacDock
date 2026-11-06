@@ -170,6 +170,10 @@ The maintainer subsequently performed two physical negative TLS tests. With the 
 
 The isolated iOS diagnostic UI now preserves the distinction between an explicit verification rejection and an unclassified timeout. This is a reporting improvement only; it does not change the fail-closed trust policy. The experiment still returns exporter-derived bytes over its fixed diagnostic exchange solely for feasibility comparison. That exchange is not a production protocol and must not be promoted unchanged into pairing or authenticated-session code.
 
+The maintainer repeated the wrong-trust-anchor test with the updated UI. The iPhone first displayed `Waiting: -9808: bad certificate format`, then reached `Failed: certificate verification rejected`, with Start enabled and Cancel disabled. This confirms physical UI propagation of an explicit trust rejection; the intermediate waiting code is not treated as the final certificate classification.
+
+An expired-certificate test is prepared using a valid temporary CA and a separately signed expired server leaf with the required `serverAuth`, key-usage, and DNS SAN extensions. The iPhone will trust only the public CA certificate. This structure is intentional because an expired certificate used directly as a trust anchor can be evaluated differently from an expired server leaf. The test remains pending physical execution.
+
 ## Candidate transcript format
 
 The following is an illustrative encoding proposal, not a cryptographic test vector or accepted wire format. It uses a length-delimited binary structure so concatenation is unambiguous. Every integer is unsigned big-endian; every byte string is prefixed by a four-byte length; text fields are UTF-8 and are only used where the field definition permits them.

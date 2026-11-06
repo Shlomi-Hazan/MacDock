@@ -297,6 +297,123 @@ These are maintainer-reported physical-device observations, not independently ex
 
 The iOS UI previously reduced some verification failures to the generic `Timeout: no verified exchange` state when Network.framework did not emit a failure before the bounded timeout. The isolated client now records an explicit rejection flag for the active attempt when the verification callback fails or trust configuration cannot be applied, and reports `Failed: certificate verification rejected` at the terminal failure/timeout boundary. It does not infer certificate failure when the callback did not report one, and the flag is cleared between attempts. This is diagnostic reporting only and does not alter trust evaluation.
 
+The maintainer repeated the wrong-trust-anchor test with this updated UI. The iPhone first displayed `Waiting: -9808: bad certificate format`, then transitioned to the terminal status `Failed: certificate verification rejected`; Start became enabled again and Cancel became disabled. This is maintainer-reported physical evidence that the explicit rejection survives to the final UI state instead of being replaced by a generic timeout. The intermediate `-9808` status is not treated as the certificate error classification; the verification callback and final rejection state are the relevant evidence.
+
+### Expired-certificate physical test preparation
+
+The expired-certificate test must use an expired server leaf signed by a separate, currently valid temporary CA. This avoids the ambiguity that can arise when the expired self-signed certificate is itself supplied as a trust anchor. The iPhone should trust only the public CA certificate; normal chain, hostname, and validity evaluation must remain enabled.
+
+The following procedure creates all temporary material under `/private/tmp` and does not change either device clock or install a system trust root. The dates are deliberately historical and must remain in the past during execution:
+
+```sh
+set -eu
+TLS_EXPIRED_DIR="$(mktemp -d /private/tmp/macdock-tls-expired.XXXXXX)"
+chmod 700 "$TLS_EXPIRED_DIR"
+mkdir "$TLS_EXPIRED_DIR/newcerts"
+: > "$TLS_EXPIRED_DIR/index.txt"
+printf '1000\n' > "$TLS_EXPIRED_DIR/serial"
+openssl rand -hex 24 > "$TLS_EXPIRED_DIR/password.txt"
+
+cat > "$TLS_EXPIRED_DIR/ca.cnf" <<EOF
+[ca]
+default_ca = CA_default
+[CA_default]
+dir = $TLS_EXPIRED_DIR
+database = $TLS_EXPIRED_DIR/index.txt
+new_certs_dir = $TLS_EXPIRED_DIR/newcerts
+serial = $TLS_EXPIRED_DIR/serial
+private_key = $TLS_EXPIRED_DIR/ca.key
+certificate = $TLS_EXPIRED_DIR/ca.pem
+default_md = sha256
+policy = policy_any
+x509_extensions = v3_ca
+[policy_any]
+commonName = supplied
+[req]
+prompt = no
+distinguished_name = req_dn
+x509_extensions = v3_ca
+[req_dn]
+CN = MacDock Expired Test CA
+[v3_ca]
+basicConstraints = critical,CA:true,pathlen:0
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+[server_ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:Shlomis-MacBook-Pro-2.local
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+EOF
+
+openssl req -x509 -newkey rsa:2048 -nodes \
+  -keyout "$TLS_EXPIRED_DIR/ca.key" \
+  -out "$TLS_EXPIRED_DIR/ca.pem" \
+  -days 365 \
+  -config "$TLS_EXPIRED_DIR/ca.cnf"
+
+cat > "$TLS_EXPIRED_DIR/server.cnf" <<EOF
+[req]
+prompt = no
+distinguished_name = req_dn
+[req_dn]
+CN = Shlomis-MacBook-Pro-2.local
+EOF
+
+openssl req -newkey rsa:2048 -nodes \
+  -keyout "$TLS_EXPIRED_DIR/server.key" \
+  -out "$TLS_EXPIRED_DIR/server.csr" \
+  -config "$TLS_EXPIRED_DIR/server.cnf"
+
+openssl ca -batch \
+  -config "$TLS_EXPIRED_DIR/ca.cnf" \
+  -in "$TLS_EXPIRED_DIR/server.csr" \
+  -out "$TLS_EXPIRED_DIR/server.pem" \
+  -extfile "$TLS_EXPIRED_DIR/ca.cnf" \
+  -extensions server_ext \
+  -startdate 251101000000Z \
+  -enddate 251102000000Z
+
+openssl x509 -in "$TLS_EXPIRED_DIR/ca.pem" -outform der -out "$TLS_EXPIRED_DIR/ca.der"
+openssl pkcs12 -export \
+  -out "$TLS_EXPIRED_DIR/server.p12" \
+  -inkey "$TLS_EXPIRED_DIR/server.key" \
+  -in "$TLS_EXPIRED_DIR/server.pem" \
+  -certfile "$TLS_EXPIRED_DIR/ca.pem" \
+  -passout file:"$TLS_EXPIRED_DIR/password.txt"
+```
+
+Before starting the listener, validate the generated material:
+
+```sh
+openssl x509 -in "$TLS_EXPIRED_DIR/server.pem" -noout -dates -subject -issuer
+openssl x509 -in "$TLS_EXPIRED_DIR/server.pem" -text -noout | \
+  rg -n "Subject Alternative Name|Extended Key Usage|Key Usage|Shlomis-MacBook-Pro-2.local|TLS Web Server Authentication|Digital Signature|Key Encipherment"
+openssl verify -verbose -purpose sslserver -CAfile "$TLS_EXPIRED_DIR/ca.pem" \
+  "$TLS_EXPIRED_DIR/server.pem" || true
+openssl x509 -in "$TLS_EXPIRED_DIR/server.pem" -pubkey -noout > "$TLS_EXPIRED_DIR/server.pub"
+openssl pkey -in "$TLS_EXPIRED_DIR/server.key" -pubout > "$TLS_EXPIRED_DIR/key.pub"
+cmp "$TLS_EXPIRED_DIR/server.pub" "$TLS_EXPIRED_DIR/key.pub"
+```
+
+The expected certificate inspection must show `notAfter=Nov 2 00:00:00 2025 GMT` (or the equivalent local rendering), the required DNS SAN, `serverAuth`, and digital-signature/key-encipherment usage. On the installed macOS LibreSSL, `openssl verify` does not provide a hostname option; `-purpose sslserver` checks the server-auth purpose and the explicit SAN inspection verifies the intended name. The command is expected to report `certificate has expired`; an error is expected for this negative fixture. The iPhone performs the actual hostname and validity evaluation during the physical test. The public-key comparison must succeed. Do not paste `server.key`, `ca.key`, `server.p12`, or `password.txt` into chat or logs.
+
+Start the isolated Mac listener with the expired server identity and the valid CA DER anchor:
+
+```sh
+swift run TLSChannelBindingProbe --runtime --listen \
+  --p12 "$TLS_EXPIRED_DIR/server.p12" \
+  --password-file "$TLS_EXPIRED_DIR/password.txt" \
+  --ca-cert "$TLS_EXPIRED_DIR/ca.der" \
+  --port 4433 --duration 120
+```
+
+Copy only the public CA certificate to the iPhone, for example with `pbcopy < "$TLS_EXPIRED_DIR/ca.pem"`. Configure the iOS experiment with host `Shlomis-MacBook-Pro-2.local`, port `4433`, TLS server name `Shlomis-MacBook-Pro-2.local`, and the CA PEM. Tap Start exactly once. The expected result is an explicit certificate-validity failure, no TLS-ready state, no exporter response, and no diagnostic completion. A timeout without a verification callback or explicit validity error is inconclusive.
+
+After the run, stop the listener and remove the entire temporary directory with `rm -rf -- "$TLS_EXPIRED_DIR"`. This path is a narrow generated fixture directory under `/private/tmp`; it contains only temporary experiment material and must never be committed.
+
 ### Queue assertion investigation
 
 The physical debugger stopped in `__dispatch_assert_queue_fail` while Network.framework callbacks were active. Source inspection found that the iOS TLS verification callback was scheduled on the experiment's serial Network.framework queue, while the callback directly accessed the `@MainActor` model's `Logger` property. That is an application-side executor mismatch and can trigger a libdispatch queue assertion before the verification log is emitted. The logger is now a process-scoped, non-actor-isolated value; the callback performs Security.framework verification on its configured callback queue and dispatches only the UI status update to the main queue. State, send, receive, timeout, and cancellation callbacks retain their existing MainActor guards.
