@@ -209,9 +209,23 @@ The corrected local harness was exercised with temporary material outside the re
 | Correct server certificate and matching scoped anchor | TLS ready; trust succeeded; exporter comparisons passed | Positive transport/binding evidence only |
 | Unrelated trust anchor | No TLS ready; no exporter result; bounded timeout | No success is reported; the run fails closed before comparison |
 | Server certificate for `wronghost` while the client requires `localhost` | Verify callback ran and failed; client reported `-9808` and server `-9825`; no exporter result | Hostname/certificate identity rejection |
-| Expired certificate | Not executed in this local run | Must be tested before treating the negative matrix as complete |
+| Expired server leaf, trusted CA only | Maintainer physical iPhone callback `-67818`; final UI reported certificate rejection; Mac reported `-9825`; no TLS ready or exporter result | Explicit fail-closed expiration rejection |
 
 The negative cases distinguish handshake rejection from an application-level exporter mismatch. A failed handshake never reaches exporter comparison and cannot produce a successful diagnostic result. Timeout and cancellation remain bounded by the runtime harness. A new local exchange creates fresh Network.framework connections and the observed cross-session value differed; no exporter bytes are retained after the exchange.
+
+### Physical validation matrix
+
+The following results are maintainer-reported physical-device observations from an iPhone 14 Pro Max and the Mac listener. They are not independently executed CI evidence:
+
+| Test | Result |
+| --- | --- |
+| Positive Mac–iPhone TLS and exporter comparison | PASS; iPhone reported `Diagnostic exchange complete (unverified)` |
+| Wrong trust anchor | PASS; iOS verification error `-67843`; Mac error `-9825` |
+| Wrong hostname | PASS; iOS verification error `-67602`; Mac error `-9825` |
+| Expired server leaf signed by a valid temporary CA | PASS; iOS verification error `-67818`; Mac error `-9825` |
+| Certificate-rejection UI reporting | PASS; final status `Failed: certificate verification rejected`, Start enabled, Cancel disabled |
+
+All three negative trust cases reached explicit iOS verification failure and produced no TLS-ready or exporter-success state. This is evidence of certificate validation behavior, not device authentication, pairing, authorization, or cryptographic construction approval.
 
 ## Isolated iOS target
 
@@ -299,9 +313,11 @@ The iOS UI previously reduced some verification failures to the generic `Timeout
 
 The maintainer repeated the wrong-trust-anchor test with this updated UI. The iPhone first displayed `Waiting: -9808: bad certificate format`, then transitioned to the terminal status `Failed: certificate verification rejected`; Start became enabled again and Cancel became disabled. This is maintainer-reported physical evidence that the explicit rejection survives to the final UI state instead of being replaced by a generic timeout. The intermediate `-9808` status is not treated as the certificate error classification; the verification callback and final rejection state are the relevant evidence.
 
-### Expired-certificate physical test preparation
+### Expired-certificate physical validation and reproducible procedure
 
-The expired-certificate test must use an expired server leaf signed by a separate, currently valid temporary CA. This avoids the ambiguity that can arise when the expired self-signed certificate is itself supplied as a trust anchor. The iPhone should trust only the public CA certificate; normal chain, hostname, and validity evaluation must remain enabled.
+The expired-certificate test used an expired server leaf signed by a separate, currently valid temporary CA. This avoids the ambiguity that can arise when the expired self-signed certificate is itself supplied as a trust anchor. The iPhone trusted only the public CA certificate; normal chain, hostname, and validity evaluation remained enabled.
+
+The maintainer executed the procedure on a physical iPhone 14 Pro Max. The iPhone verification callback reported `NSOSStatusErrorDomain` code `-67818`, the final UI reported `Failed: certificate verification rejected`, and the Mac reported `server connection state: failed(-9825: misc. bad certificate)`. No TLS-ready state or exporter exchange occurred. This is maintainer-reported physical evidence of explicit expiration rejection.
 
 The following procedure creates all temporary material under `/private/tmp` and does not change either device clock or install a system trust root. The dates are deliberately historical and must remain in the past during execution:
 
@@ -414,6 +430,34 @@ Copy only the public CA certificate to the iPhone, for example with `pbcopy < "$
 
 After the run, stop the listener and remove the entire temporary directory with `rm -rf -- "$TLS_EXPIRED_DIR"`. This path is a narrow generated fixture directory under `/private/tmp`; it contains only temporary experiment material and must never be committed.
 
+### Physical connection-lifecycle test preparation
+
+The following procedures are prepared but not yet executed. Each run uses a fresh iOS attempt and the valid, non-expired hostname certificate. They test transport lifecycle only; they do not test pairing or trusted-session resumption.
+
+#### Test D — Explicit cancellation
+
+Start the valid listener in a normal interactive Terminal:
+
+```sh
+swift run TLSChannelBindingProbe --runtime --listen \
+  --p12 /private/tmp/<valid-fixture>/server.p12 \
+  --password-file /private/tmp/<valid-fixture>/password.txt \
+  --ca-cert /private/tmp/<valid-fixture>/server.der \
+  --port 4433 --duration 120
+```
+
+On the iPhone, configure the valid host, port, matching TLS server name, and public certificate anchor. Tap `Start experiment` once, then tap `Cancel` while the UI shows `TLS preparing` or another active state. Record the final status and the Mac listener state. Expected invariants: final status `Cancelled`, no exporter completion, no later success, and Start enabled with Cancel disabled. Repeat only if needed to capture a second timing point; do not start concurrent attempts.
+
+#### Test E — Unexpected closure
+
+Start the same listener command. Configure the iPhone with the valid certificate and tap Start once. While the attempt is active and before a successful diagnostic completion, stop the Mac listener with `Ctrl-C` in the Terminal. Record the iPhone terminal state and Mac output. Expected invariants: no diagnostic completion after interruption, no indefinite waiting, and a transport-close/failure or bounded timeout status. A certificate-verification callback must not be claimed unless it is actually logged; this test is distinct from trust rejection.
+
+#### Test F — Reconnection after a completed exchange
+
+Start the valid listener with a duration long enough for two attempts, for example `--duration 180`. On the iPhone, perform one valid Start and wait for `Diagnostic exchange complete (unverified)`. After Start is enabled again, tap Start once more. Record two separate `listener accepted connection` and `server diagnostic exchange complete` sequences. Expected invariants: the second attempt succeeds independently, no stale state affects it, no exporter value is displayed or persisted, and the first attempt does not authorize the second one.
+
+For an interrupted-then-recovered variant, stop the listener during an active attempt, wait for the iPhone to reach its terminal failure/timeout state, restart the same valid listener, and start a new attempt only after the previous attempt is terminal. The new exchange must be a fresh connection; no automatic replay is expected.
+
 ### Queue assertion investigation
 
 The physical debugger stopped in `__dispatch_assert_queue_fail` while Network.framework callbacks were active. Source inspection found that the iOS TLS verification callback was scheduled on the experiment's serial Network.framework queue, while the callback directly accessed the `@MainActor` model's `Logger` property. That is an application-side executor mismatch and can trigger a libdispatch queue assertion before the verification log is emitted. The logger is now a process-scoped, non-actor-isolated value; the callback performs Security.framework verification on its configured callback queue and dispatches only the UI status update to the main queue. State, send, receive, timeout, and cancellation callbacks retain their existing MainActor guards.
@@ -441,9 +485,7 @@ The future design must still address wrong-peer verification, channel substituti
 
 The following remain required before Candidate A can be treated as ready for formal construction approval:
 
-- Physical wrong-anchor and hostname-rejection tests, confirming fail-closed behavior on the iPhone path.
 - Physical reconnection, cancellation, and unexpected-closure tests.
-- An expired-certificate rejection test.
 - Runtime validation on the provisional macOS 14 and iOS 17 minimum versions; the successful run used a newer environment and does not establish minimum-OS compatibility.
 - Independent cryptographic review of the exact identity, transcript, channel-binding, SAS, and trust-commit construction.
 
