@@ -161,9 +161,11 @@ private final class ListenerSession: @unchecked Sendable {
                 if let error {
                     print("server exporter response failure: \(error)")
                 } else {
-                    print("server exporter response sent")
+                    print("server exporter response send completed locally; remote receipt unverified")
                 }
-                self.finish(reason: error == nil ? "server diagnostic exchange complete" : "server diagnostic exchange failed")
+                self.finish(reason: error == nil
+                    ? "server diagnostic response send completed locally; remote receipt unverified"
+                    : "server diagnostic exchange failed")
             })
         }
         lock.lock()
@@ -174,6 +176,17 @@ private final class ListenerSession: @unchecked Sendable {
         responseWorkItem = workItem
         lock.unlock()
         queue.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    func handleTransportState(_ state: NWConnection.State) {
+        switch state {
+        case .failed(let error):
+            finish(reason: "server connection failed before diagnostic completion: \(error)")
+        case .cancelled:
+            finish(reason: "server connection cancelled before diagnostic completion")
+        default:
+            break
+        }
     }
 }
 
@@ -376,6 +389,7 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
         print("listener accepted connection")
         connection.stateUpdateHandler = { state in
             print("server connection state: \(state)")
+            acceptedSession.handleTransportState(state)
             guard case .ready = state else { return }
             guard acceptedSession.beginExchange() else { return }
             print("server TLS ready; retrieving connection metadata")
