@@ -111,6 +111,7 @@ private final class ListenerSession: @unchecked Sendable {
     private var exchangeStarted = false
     private var didFinish = false
     private var timeoutWorkItem: DispatchWorkItem?
+    private var responseWorkItem: DispatchWorkItem?
 
     init(connection: NWConnection, finished: DispatchSemaphore) {
         self.connection = connection
@@ -142,10 +143,37 @@ private final class ListenerSession: @unchecked Sendable {
         }
         didFinish = true
         timeoutWorkItem?.cancel()
+        responseWorkItem?.cancel()
         lock.unlock()
         print(reason)
         connection.cancel()
         finished.signal()
+    }
+
+    func scheduleResponse(on queue: DispatchQueue, after delay: TimeInterval, connection: NWConnection, exporter: Data) {
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let shouldRun = !self.didFinish
+            self.lock.unlock()
+            guard shouldRun else { return }
+            connection.send(content: exporter, completion: .contentProcessed { error in
+                if let error {
+                    print("server exporter response failure: \(error)")
+                } else {
+                    print("server exporter response sent")
+                }
+                self.finish(reason: error == nil ? "server diagnostic exchange complete" : "server diagnostic exchange failed")
+            })
+        }
+        lock.lock()
+        guard !didFinish else {
+            lock.unlock()
+            return
+        }
+        responseWorkItem = workItem
+        lock.unlock()
+        queue.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 }
 
@@ -326,7 +354,7 @@ private func argument(_ name: String) -> String? {
     return CommandLine.arguments[index + 1]
 }
 
-private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInterval) throws {
+private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInterval, diagnosticDelay: TimeInterval) throws {
     let serverTLS = TLSChannelBindingProbe.makeTLSOptions(identity: identity.value, requirePeerAuthentication: false)
     let parameters = NWParameters(tls: serverTLS, tcp: NWProtocolTCP.Options())
     let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
@@ -365,14 +393,10 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
                     acceptedSession.finish(reason: "server diagnostic request rejected")
                     return
                 }
-                connection.send(content: exporter, completion: .contentProcessed { error in
-                    if let error {
-                        print("server exporter response failure: \(error)")
-                    } else {
-                        print("server exporter response sent")
-                    }
-                    acceptedSession.finish(reason: error == nil ? "server diagnostic exchange complete" : "server diagnostic exchange failed")
-                })
+                if diagnosticDelay > 0 {
+                    print("server diagnostic response delayed: \(diagnosticDelay)s")
+                }
+                acceptedSession.scheduleResponse(on: queue, after: diagnosticDelay, connection: connection, exporter: exporter)
             }
         }
         connection.start(queue: queue)
@@ -408,7 +432,9 @@ struct Main {
             if CommandLine.arguments.contains("--listen") {
                 let port = UInt16(argument("--port") ?? "4433") ?? 4433
                 let duration = TimeInterval(argument("--duration") ?? "120") ?? 120
-                try runListener(identity: identity, port: port, duration: duration)
+                let requestedDelay = TimeInterval(argument("--diagnostic-delay") ?? "0") ?? 0
+                let diagnosticDelay = min(max(requestedDelay, 0), 30)
+                try runListener(identity: identity, port: port, duration: duration, diagnosticDelay: diagnosticDelay)
                 return
             }
             guard let first = try runExchange(identity: identity, anchor: anchor),

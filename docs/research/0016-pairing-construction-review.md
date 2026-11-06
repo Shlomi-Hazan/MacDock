@@ -174,6 +174,8 @@ The maintainer repeated the wrong-trust-anchor test with the updated UI. The iPh
 
 The expired-certificate test was executed using a valid temporary CA and a separately signed expired server leaf with the required `serverAuth`, key-usage, and DNS SAN extensions. The iPhone trusted only the public CA certificate and reported `-67818`; the Mac reported `-9825`; neither endpoint reached TLS ready. This structure is intentional because an expired certificate used directly as a trust anchor can be evaluated differently from an expired server leaf. The result is maintainer-reported physical evidence, not cryptographic construction approval.
 
+For connection lifecycle validation, the maintainer reported two physical cancellation attempts. One completed the diagnostic exchange before Cancel could be pressed and is counted only as another positive exchange. In the second, Cancel produced the terminal `Cancelled` state and re-enabled Start; no Mac-side log was supplied, so late-callback suppression and complete cleanup remain unproven. The isolated listener now supports an opt-in, bounded `--diagnostic-delay` before its diagnostic response, allowing a reproducible cancellation window without changing TLS or exporter behavior. Physical unexpected-closure and two-connection reconnection tests remain outstanding.
+
 ## Candidate transcript format
 
 The following is an illustrative encoding proposal, not a cryptographic test vector or accepted wire format. It uses a length-delimited binary structure so concatenation is unambiguous. Every integer is unsigned big-endian; every byte string is prefixed by a four-byte length; text fields are UTF-8 and are only used where the field definition permits them.

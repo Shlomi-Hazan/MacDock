@@ -430,11 +430,15 @@ Copy only the public CA certificate to the iPhone, for example with `pbcopy < "$
 
 After the run, stop the listener and remove the entire temporary directory with `rm -rf -- "$TLS_EXPIRED_DIR"`. This path is a narrow generated fixture directory under `/private/tmp`; it contains only temporary experiment material and must never be committed.
 
-### Physical connection-lifecycle test preparation
+### Physical connection-lifecycle test preparation and evidence
 
-The following procedures are prepared but not yet executed. Each run uses a fresh iOS attempt and the valid, non-expired hostname certificate. They test transport lifecycle only; they do not test pairing or trusted-session resumption.
+The following procedures test transport lifecycle only; they do not test pairing or trusted-session resumption. Test D has limited maintainer-reported evidence below, while the deterministic retest and Tests E/F remain outstanding.
 
 #### Test D — Explicit cancellation
+
+The maintainer reported two physical attempts using the valid temporary server certificate. In the first attempt, TLS and the diagnostic exchange completed before Cancel could be pressed; the Mac reported `server TLS ready`, `server exporter response sent`, and `server diagnostic exchange complete`. This is positive diagnostic evidence, not a cancellation result. In the second attempt, Cancel was pressed before diagnostic completion; the iPhone displayed terminal status `Cancelled`, and Start became enabled again. No corresponding Mac log evidence was supplied. These observations establish the cancellation UI and terminal state transition, but do not yet prove that late callbacks, exporter completion, or all connection cleanup are suppressed. They are maintainer-reported physical evidence, not automated test results.
+
+The original harness sent the diagnostic response immediately after receiving `MDCB`, so physical cancellation before completion depended on timing. It now supports an experiment-only, opt-in server delay before sending that response. The delay is disabled by default, is bounded to 30 seconds, does not affect TLS negotiation, verification, or exporter derivation, and is cancelled with the per-connection session.
 
 Start the valid listener in a normal interactive Terminal:
 
@@ -443,10 +447,10 @@ swift run TLSChannelBindingProbe --runtime --listen \
   --p12 /private/tmp/<valid-fixture>/server.p12 \
   --password-file /private/tmp/<valid-fixture>/password.txt \
   --ca-cert /private/tmp/<valid-fixture>/server.der \
-  --port 4433 --duration 120
+  --port 4433 --duration 120 --diagnostic-delay 8
 ```
 
-On the iPhone, configure the valid host, port, matching TLS server name, and public certificate anchor. Tap `Start experiment` once, then tap `Cancel` while the UI shows `TLS preparing` or another active state. Record the final status and the Mac listener state. Expected invariants: final status `Cancelled`, no exporter completion, no later success, and Start enabled with Cancel disabled. Repeat only if needed to capture a second timing point; do not start concurrent attempts.
+On the iPhone, configure the valid host, port, matching TLS server name, and public certificate anchor. Tap `Start experiment` once. After the Mac reports `server diagnostic response delayed: 8.0s`, tap `Cancel` once. Record the final status and the Mac listener state. Expected invariants: final status `Cancelled`, no exporter completion, no later success, and Start enabled with Cancel disabled. The Mac may report a send failure when the cancelled iPhone connection is cleaned up; that is transport cleanup, not a successful exchange. Repeat only after the first attempt is terminal; do not start concurrent attempts.
 
 #### Test E — Unexpected closure
 
