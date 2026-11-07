@@ -480,7 +480,18 @@ After that correction, the maintainer repeated Test F on a physical iPhone 14 Pr
 
 The six-session output cannot currently be mapped conclusively to the two user-level Start actions. The logs now distinguish opaque listener session IDs, but they do not yet correlate those IDs with a client attempt ID or establish whether the extra sessions were retries, path-establishment behavior, prior attempts, or timing artifacts. No further speculative lifecycle change is justified; a future discriminating run should capture the iOS attempt-generation logs alongside the Mac session IDs.
 
-Use the existing fixture under `/private/tmp/macdock-tls-expired.0WtQhP/` only while it remains available and valid. Its valid server certificate is expected to expire on November 14, 2026. Verify the dates before use, then start:
+### Connection-correlation review
+
+Source inspection confirms that the iOS client creates one fresh `NWConnection` per accepted Start action and logs a monotonically increasing local attempt generation. The Mac listener assigns a separate opaque session number when `newConnectionHandler` accepts a connection, logs per-session transport state and TLS-ready transitions, and removes only that session during cleanup. These identifiers are intentionally local and do not constitute a cross-device correlation guarantee. The supplied output cannot distinguish endpoint resolution, path selection, retries, callbacks from earlier attempts, or an implementation defect. A shared diagnostic attempt identifier could be carried only after the already verified TLS channel, but adding it is unnecessary for the current feasibility result and would change the experiment message semantics.
+
+Use the existing fixture under `/private/tmp/macdock-tls-expired.0WtQhP/` only while it remains available and valid. Its valid server certificate is expected to expire on November 14, 2026. Verify the dates before use, without exposing the password or private key:
+
+```sh
+openssl pkcs12 -in /private/tmp/macdock-tls-expired.0WtQhP/server-valid.p12 -clcerts -nokeys -passin file:/private/tmp/macdock-tls-expired.0WtQhP/password.txt \
+  | openssl x509 -noout -dates -subject -ext subjectAltName -ext extendedKeyUsage -ext keyUsage
+```
+
+Then start:
 
 ```sh
 swift run TLSChannelBindingProbe --runtime --listen \
@@ -490,7 +501,7 @@ swift run TLSChannelBindingProbe --runtime --listen \
   --port 4433 --duration 180
 ```
 
-On the iPhone, use the matching Mac hostname, TLS server name, and public contents of `ca.pem`. Tap `Start experiment` once and wait for `Diagnostic exchange complete (unverified)`. Confirm Start is enabled again, then tap Start once more and wait for a second completion. Record two separate `listener accepted connection session=...`, TLS-ready, and local diagnostic-response send sequences. Expected invariants: two independent Network.framework connections, no state leakage, no displayed or persisted exporter bytes, and no implication of TLS session resumption or production pairing. A successful send remains local evidence only; it is not remote receipt.
+On the iPhone, use the matching Mac hostname, TLS server name, and public contents of `ca.pem`. Tap `Start experiment` exactly once and wait for `Diagnostic exchange complete (unverified)`. Confirm Start is enabled again, then tap Start exactly once more and wait for a second completion. Save only the non-sensitive iOS lines containing the attempt generation and connection state, and the Mac lines containing `listener accepted connection session=...`, TLS-ready, local send, and cleanup state. Record two separate TLS-ready sequences if present. Expected invariants: two independent Network.framework connections, no state leakage, no displayed or persisted exporter bytes, and no implication of TLS session resumption or production pairing. A successful send remains local evidence only; it is not remote receipt.
 
 For an interrupted-then-recovered variant, stop the listener during an active attempt, wait for the iPhone to reach its terminal failure/timeout state, restart the same valid listener, and start a new attempt only after the previous attempt is terminal. The new exchange must be a fresh connection; no automatic replay is expected.
 
@@ -524,6 +535,8 @@ The following remain required before Candidate A can be treated as ready for for
 - Broader unexpected-closure cleanup semantics and correlation of connection-level sessions with user-level attempts.
 - Runtime validation on the provisional macOS 14 and iOS 17 minimum versions; the successful run used a newer environment and does not establish minimum-OS compatibility.
 - Independent cryptographic review of the exact identity, transcript, channel-binding, SAS, and trust-commit construction.
+
+The unresolved connection-level session correlation is not a blocker to the demonstrated TLS feasibility. It is a bounded experiment limitation and a later Stage 2 integration concern, where a reviewed application-level request identifier and explicit replay semantics will be required.
 
 ## Conclusion
 

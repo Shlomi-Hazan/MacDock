@@ -184,6 +184,8 @@ After that correction, the maintainer reported two consecutive physical iPhone c
 
 The available logs do not establish why six connection-level sessions corresponded to two user-level attempts. The opaque session IDs distinguish accepted connections, but there is no cross-device attempt correlation yet. The remaining uncertainty should be resolved by one controlled run that records iOS attempt-generation values together with Mac session IDs; no speculative transport redesign is warranted from the current evidence.
 
+Source inspection confirms that each iOS Start action creates a fresh `NWConnection` and increments a local attempt generation, while the Mac assigns a separate opaque ID when its listener accepts a connection. The IDs are not shared and must not be presented as cross-device correlation. The current evidence cannot distinguish endpoint resolution, path selection, retries, callbacks from earlier attempts, or an implementation defect. A shared diagnostic attempt ID could be introduced only inside the already verified experimental channel, but it is not required to establish TLS feasibility and would change the experiment message semantics. The next useful observation is therefore a controlled two-attempt run with both local logs captured side by side.
+
 ## Candidate transcript format
 
 The following is an illustrative encoding proposal, not a cryptographic test vector or accepted wire format. It uses a length-delimited binary structure so concatenation is unambiguous. Every integer is unsigned big-endian; every byte string is prefixed by a four-byte length; text fields are UTF-8 and are only used where the field definition permits them.
