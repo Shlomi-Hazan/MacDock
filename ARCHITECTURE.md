@@ -2,12 +2,12 @@
 
 - Status: Stage 1 foundation implemented; Stage 2 readiness under review
 - Issue: [#9](https://github.com/Shlomi-Hazan/MacDock/issues/9)
-- Scope: one Mac companion, one foreground iPhone client, local-first MVP
+- Scope: one Mac companion, one foreground iPhone client, local-first Mac Control Center MVP
 - Last reviewed: 2026-11-04
 
 ## Purpose and evidence
 
-This document turns the Stage 0 requirements, Apple API research, and isolated experiments into boundaries for Stage 1. It is not production implementation and does not finalize the cryptographic wire format.
+This document turns the requirements, Apple API research, and isolated experiments into boundaries for the staged product. It distinguishes proposed expanded-MVP architecture from implemented behavior and does not finalize the cryptographic wire format.
 
 Evidence is classified as follows:
 
@@ -33,6 +33,18 @@ The experiment targets remain isolated. Their code and test identities are not p
 ```
 
 Bonjour identifies candidates only. It never creates a trusted peer. The Mac companion is the authority for Mac application inventory and launch/activation outcomes; the iPhone is the single writer for the user's Dock selection and ordering in the one-phone MVP.
+
+## Proposed expanded-MVP control-center boundary
+
+The expanded control center adds capability handlers on the Mac and presentation/control surfaces on the foreground iPhone. These are proposed boundaries, not implemented components. Each handler must be independently authorized after peer authentication:
+
+- Core Dock: logical application catalog, Dock persistence, launch and activation outcomes.
+- Control Center: supported audio/media controls, network telemetry/speed-test lifecycle, and battery status.
+- Remote Interaction: foreground pointer movement, constrained text insertion, and explicit one-shot clipboard transfer.
+
+The Mac owns platform APIs and permission checks; the iPhone owns user intent, visible consent, local presentation, and cancellation. `MacDockShared` may contain only platform-neutral models, validation, and request/outcome types. There is no generic unrestricted command interface. Capability negotiation is allow-listed, deny-by-default, and separate from session authentication. Input and clipboard grants are short-lived and revocable; reconnect does not restore sensitive grants or replay non-idempotent requests.
+
+The following remain prohibited until their specific security and feasibility gates pass: application inventory/control in Stage 2, hidden pointer or keyboard control, input monitoring, unrestricted key events, continuous clipboard polling, arbitrary paths, shell commands, privilege escalation, and private Apple APIs.
 
 ## macOS companion boundary
 

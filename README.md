@@ -1,10 +1,10 @@
 # MacDock
 
-MacDock is an independent, native Apple-platform application that turns an iPhone into a customizable Dock and control surface for a Mac over a local network.
+MacDock is an independent, native Apple-platform application that turns an iPhone into a local-first Mac Control Center over a local network, including a customizable Dock and explicitly authorized status and control surfaces.
 
 ## Project status
 
-MacDock has completed Stage 0 with a maintainer-approved Conditional Go. Stage 1 foundation implementation is complete and under acceptance review; the current production foundation contains only inert native application shells, shared pure models, bounded framing, lifecycle state models, and CI. Networking, pairing, application inventory, Dock synchronization, launch, and activation are not implemented.
+MacDock has completed Stage 0 and Stage 1 with the maintainer-approved Conditional Go boundaries. The current production foundation contains only inert native application shells, shared pure models, bounded framing, lifecycle state models, and CI. The expanded MVP is documented as planning only; networking, pairing, application inventory, Dock synchronization, launch, activation, and the new control-center capabilities are not implemented.
 
 The shared foundation package is located at `MacDockShared/`. It contains only Foundation-compatible models and pure logic shared by the native targets. Run its tests with:
 
@@ -12,9 +12,7 @@ The shared foundation package is located at `MacDockShared/`. It contains only F
 swift test --package-path MacDockShared
 ```
 
-The initial MVP targets one Mac and one iPhone. The interactive Dock is expected to operate while the iOS application is in the foreground. The first MVP focuses on securely pairing the devices, displaying a customizable set of Mac applications, and launching or activating those applications from the iPhone.
-
-Touchpad, keyboard, media controls, clipboard synchronization, and other advanced capabilities are intentionally out of scope for the initial MVP.
+The approved expanded MVP targets one Mac and one iPhone. The interactive iPhone surface operates in the foreground. It includes the Core Dock plus scoped audio, supported media, validated network information, battery states, touchpad/pointer, constrained keyboard input, and explicit one-shot clipboard transfer. Each capability remains conditional on platform feasibility, explicit authorization, privacy review, and truthful unsupported states. Cloud access, arbitrary shell execution, hidden input, continuous clipboard monitoring, and guaranteed iOS background operation remain out of scope. See [PRD](PRD.md) and [ROADMAP](ROADMAP.md) for the planning boundary; implementation has not begun from this documentation update.
 
 ## Local development
 
@@ -62,6 +60,8 @@ Action dependencies are pinned to reviewed immutable commit SHAs; upgrades requi
 - [Roadmap](ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
+- [Expanded MVP implementation plan](docs/milestones/expanded-mvp-implementation-plan.md)
+- [Expanded MVP authorization and privacy requirements](docs/security/expanded-mvp-authorization-and-privacy-requirements.md)
 - [AI and development-agent guidance](AGENTS.md)
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md)
 - [Research notes](docs/research/)

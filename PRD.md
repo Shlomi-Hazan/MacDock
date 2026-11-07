@@ -1,159 +1,152 @@
 # MacDock Product Requirements
 
-## Purpose
+## Product purpose and positioning
 
-MacDock provides an iPhone-based Dock for launching and activating applications on a paired Mac over the local network.
+MacDock is a local-first, secure Mac Control Center: a native Mac companion and a foreground-operated iPhone application for controlling and observing one Mac from one iPhone on the same local network. The product combines a customizable application Dock with explicitly authorized, privacy-conscious Mac controls.
 
-## Primary user and operating context
+The iPhone is a user-operated control surface, not a general remote-administration client. The MVP requires no cloud account or cloud service and does not promise operation while the iOS application is backgrounded.
 
-The primary user operates one Mac and one iPhone on the same local network. The Mac runs the MacDock companion application, and the iPhone runs the MacDock app in the foreground. The initial MVP does not require a cloud account or a cloud service.
+## Operating context and primary journey
 
-The Dock is a focused control surface, not a replacement for the macOS Dock or a general remote-control suite.
+The supported MVP relationship is one Mac and one iPhone. The user installs the Mac companion, opens MacDock on the iPhone, discovers a candidate Mac, completes a reviewed two-sided pairing flow, and reaches an authenticated session. Discovery, transport readiness, authentication, and authorization are distinct states.
 
-## Primary user journey
+After setup, the user can configure a Dock, launch or activate supported applications, inspect supported Mac status, and invoke explicitly enabled controls. Each sensitive operation is visible, bounded, and independently rejectable. The UI must report `Unavailable`, `Unsupported`, `Denied`, `Stale`, `Failed`, and `Unknown` instead of inventing success.
 
-1. The user installs and opens the MacDock companion on the Mac.
-2. The user opens MacDock on the iPhone and starts setup.
-3. The iPhone discovers an available Mac on the local network.
-4. The user confirms pairing on both devices through a user-confirmed flow. QR code setup is preferred for convenience, but the QR payload is not authentication by itself.
-5. After pairing, the iPhone displays the Mac's available applications and an initial Dock.
-6. The user selects applications, adds or removes Dock items, and reorders them.
-7. The user taps an item to request launch or activation on the Mac.
-8. The iPhone displays connection, progress, success, or recoverable error state.
+The iOS application remains foreground-operated in the MVP. Background execution, cloud access, arbitrary shell execution, and unrestricted remote administration are outside the product boundary.
 
-If the iOS app leaves the foreground, the interactive Dock is not required to remain available in the MVP. The app must clearly communicate this limitation during onboarding and when the connection is interrupted.
+## Approved MVP feature groups
 
-## Product use cases
+### F1 — Core Dock
 
-### Pair one iPhone with one Mac
+Minimum scope: discover supported Mac applications, display names and icons, add/remove/reorder Dock items, persist the configuration, and request launch or activation for supported logical application identifiers.
 
-The user can identify the intended Mac, approve pairing on the participating devices, and reach a connected state without relying on local-network reachability as authentication.
+User-visible behavior: the user edits the Dock on the iPhone and receives `Submitted`, `Acknowledged`, `Process observed`, `Activation requested`, `Frontmost observed`, `Failed`, `Unsupported`, or `Unknown` outcomes as applicable.
 
-### Configure the Dock
+Permissions and boundaries: operations require an authenticated session and capability authorization. The Mac resolves logical IDs against its current catalog. No arbitrary paths, shell commands, unrestricted process control, or raw directories cross the wire.
 
-The user can view available Mac applications, add an application to the Dock, remove an existing item, and reorder items. The resulting order and membership persist for the paired user and Mac within the MVP.
+Acceptance criteria: Dock membership/order survives supported relaunch and reconnection; launch and activation failures preserve configuration; unsupported or unverifiable outcomes are truthful.
 
-### Launch an application
+Unverified assumptions: catalog source, icon representation, supported application classes, activation observability, and distribution permissions require implementation evidence.
 
-The user can tap a Dock item and receive a visible result. If the application is not running, MacDock requests launch. If launch is unavailable or fails, the user receives an actionable error without losing the Dock configuration.
+### F2 — System Audio
 
-### Activate an application
+Minimum scope: adjust and display the supported Mac output volume and mute state.
 
-When the application is already running and the platform permits activation, MacDock requests activation or focus. If activation cannot be performed or verified, the user receives an explicit state rather than a false success.
+Non-goals: microphone access, audio capture, and mandatory per-application volume control.
 
-### Recover from connection interruption
+The UI must handle output-device changes, unsupported controls, denied access, and unknown state. Acceptance requires bounded, authorized operations and state refresh after device changes. Per-device and system-wide behavior is a feasibility dependency, not an assumption.
 
-The user can distinguish disconnected, reconnecting, connected, and failed states. MacDock may retry ordinary interruptions and must provide a clear way to retry or re-pair when recovery is not possible.
+### F3 — Music and Media
+
+Minimum scope: display supported Now Playing metadata and provide play/pause and next/previous controls only for explicitly validated player integrations.
+
+Non-goals: universal control of every player, undocumented/private MediaRemote APIs, media capture, and background playback management.
+
+Unsupported players and unavailable metadata must be visible. Acceptance requires a documented support matrix, truthful command outcomes, and no fallback that silently controls an unintended player.
+
+### F4 — Network Information
+
+Minimum scope: display validated download/upload statistics and optionally offer a user-initiated, bounded speed test only after feasibility validation.
+
+The product must distinguish MacDock traffic from interface/system-wide telemetry. A speed test must disclose duration and data budget, require explicit consent, stop deterministically, and never run silently or in the background. Whole-system statistics and suitable public APIs remain conditional requirements.
+
+Acceptance requires measurement provenance, stale/unavailable states, bounded resource use, and privacy review. No claim of whole-system throughput is valid until supported by evidence.
+
+### F5 — Battery Monitoring
+
+Minimum scope: show Mac battery/charging state where applicable, the iPhone application's own battery state using supported APIs, and supported peripheral battery telemetry only when legitimately available.
+
+Desktop Macs without batteries and unavailable peripherals must display `Unavailable`, `Unsupported`, or `Stale`. The MVP does not promise universal AirPods, Bluetooth, USB, or accessory coverage.
+
+Acceptance requires source and freshness semantics, no personal hardware identifiers in logs, and graceful handling of unavailable telemetry.
+
+### F6 — Touchpad
+
+Minimum scope: a foreground iPhone touch surface for supported Mac pointer movement and primary click.
+
+Additional gestures are conditional on feasibility. Control is disabled by default, visibly enabled, explicitly authorized, and revocable. No hidden background pointer control, user-input monitoring, recording, or screen capture is allowed.
+
+Acceptance requires validated macOS permission behavior, bounded event handling, cancellation on disconnect, and no replay after reconnect.
+
+### F7 — Keyboard
+
+Minimum scope: user-initiated constrained text insertion from the iPhone.
+
+Non-goals: unrestricted key-event injection, keylogging, keyboard capture, password interception, Secure Input bypass, or guaranteed support for every application/layout.
+
+The feature requires explicit permission, visible enabled state, short-lived/revocable authorization, and truthful rejection for protected or unsupported contexts. Acceptance is conditional on physical and distribution validation of Accessibility/Input Monitoring and Secure Input behavior.
+
+### F8 — Clipboard Transfer
+
+Minimum scope: explicit, one-shot text transfer in either direction using supported pasteboard APIs.
+
+The baseline does not continuously poll or synchronize the clipboard. Transfers require meaningful user intent, operation-level authorization, content-type and size limits, expiration where appropriate, and visible direction/status. Rejection, privacy restriction, and unavailable states are first-class outcomes.
+
+Acceptance requires privacy review, no silent repeated transfer, deterministic cancellation, and no retention beyond the documented operation boundary.
 
 ## Functional requirements
 
-### FR-1: Device discovery and pairing
-
-The iPhone can discover one intended Mac on the local network and the user can approve a secure pairing flow on both devices. Discovery is not authentication. The product must not present a device as trusted solely because it answered discovery.
-
-### FR-2: Connection lifecycle
-
-The iPhone displays at least `disconnected`, `discovering`, `pairing`, `connected`, `reconnecting`, and `error` states as applicable. State changes must not silently discard the user's Dock configuration.
-
-### FR-3: Application catalog
-
-The Mac provides a user-facing list of applications that MacDock is permitted and able to launch. The iPhone can display a stable identity and user-readable name for each listed application. The exact catalog source and permission model remain Stage 0 validation topics.
-
-### FR-4: Dock customization
-
-The user can add, remove, and reorder applications. The UI provides confirmation through the resulting Dock state, and persisted configuration survives ordinary app relaunch and reconnection within the supported one-Mac/one-iPhone relationship.
-
-### FR-5: Launch
-
-Tapping an application requests launch on the Mac. The UI communicates progress and a verified success or failure state. A failed request must not corrupt the Dock configuration.
-
-### FR-6: Activation
-
-When technically supported and permitted, tapping an already-running application requests activation or focus. The product must distinguish verified activation from an unsupported, denied, or unknown result.
-
-### FR-7: Foreground operation
-
-The interactive iPhone Dock is supported while the iOS app is in the foreground. The product does not promise an always-on background Dock in the MVP.
-
-### FR-8: Recovery
-
-After an ordinary local-network interruption, the app presents reconnecting/reconnected state when recovery succeeds, and an actionable error when it does not. Pairing data is retained unless the user explicitly removes trust or recovery requires re-pairing.
+- **FR-1 Discovery and pairing:** discover one candidate Mac and complete a reviewed two-sided pairing flow; discovery and QR data are not authentication by themselves.
+- **FR-2 Authenticated session:** expose no control capability before peer authentication, session freshness, and authorization gates pass.
+- **FR-3 Capability authorization:** negotiate only supported capabilities; deny by default and keep sensitive grants separate from session authentication.
+- **FR-4 Connection lifecycle:** distinguish discovery, transport, authentication, authorization, disconnected, reconnecting, failed, and cancelled states.
+- **FR-5 Core Dock:** satisfy F1 with logical application IDs and truthful outcomes.
+- **FR-6 Audio:** satisfy F2 only for validated output-device operations.
+- **FR-7 Media:** satisfy F3 only for documented player integrations.
+- **FR-8 Network:** satisfy F4 with explicit provenance and bounded speed-test behavior.
+- **FR-9 Battery:** satisfy F5 with availability/freshness semantics.
+- **FR-10 Pointer:** satisfy F6 with explicit high-risk authorization and cancellation.
+- **FR-11 Keyboard:** satisfy F7 with constrained insertion and protected-context failure.
+- **FR-12 Clipboard:** satisfy F8 with one-shot consent and bounded content handling.
+- **FR-13 Foreground operation:** communicate that the interactive iPhone surface is supported in the foreground only.
+- **FR-14 Recovery:** preserve local configuration, invalidate sensitive grants on session change, and never automatically replay non-idempotent operations.
 
 ## Nonfunctional requirements
 
-- **Security:** pairing must include explicit peer authentication and encrypted communication appropriate to the final validated design. QR data, Bonjour, and local-network access alone are insufficient authentication.
-- **Privacy:** the MVP is local-first, sends no application-control data to a cloud service, and avoids exposing unnecessary application names, identifiers, or payloads in logs.
-- **Reliability:** ordinary connection interruptions must result in an explicit state and a bounded recovery path rather than an indefinite spinner.
-- **Responsiveness:** common Dock interactions should provide immediate local feedback while the Mac operation is pending; exact latency targets require measurement during later validation.
-- **Accessibility:** core Dock actions and connection/error states must be usable with supported iOS accessibility features before release.
-- **Maintainability:** requirements and later technical decisions must remain traceable to Issues, ADRs, tests, and verified implementation behavior.
+- **Security:** authenticated transport and peer identity are separate from operation authorization; no unreviewed cryptographic construction is accepted by this document.
+- **Privacy:** local-first operation, minimal telemetry, no exporter/private-key logging, explicit clipboard direction, and no hidden input monitoring.
+- **Reliability:** bounded timeouts, deterministic cancellation, stale-callback rejection, idempotent reads where possible, and no replay of launch/input/clipboard operations after uncertain delivery.
+- **Accessibility:** core Dock and status views must be accessible; privileged Mac permissions must be explained before activation.
+- **Performance:** control surfaces should provide immediate local acknowledgement while preserving truthful remote outcomes; targets require later measurement.
+- **Maintainability:** every feature maps to a feasibility result, Issue, security gate, tests, and documented platform limitation.
 
-## Product constraints
+## State glossary and errors
 
-- The iPhone Dock is interactive while the iOS application is in the foreground.
-- QR code discovery or setup is preferred, but a QR code is not authentication by itself.
-- The first release supports one Mac and one iPhone.
-- Communication is local-first; no cloud service is required for the MVP.
-- A Mac companion application must be installed and available for pairing and control.
-- Keep Screen Awake may be offered as an optional user-controlled iPhone setting if supported behavior, battery impact, thermal behavior, and idle-timer restoration are validated. It is not required for the baseline MVP.
+`Discovered` means an untrusted candidate is visible. `Transport ready` means a connection exists. `Authenticated` means the reviewed peer proof succeeded. `Authorized` means the requested capability/operation is currently permitted. None of these states implies the next one.
+
+User-visible errors include `No Mac found`, `Not paired`, `Pairing rejected or expired`, `Disconnected`, `Reconnecting`, `Permission required`, `Denied`, `Unsupported`, `Unavailable`, `Stale`, `Timed out`, `Operation failed`, `Unknown result`, and `Foreground required`. Recovery must be bounded and must not silently elevate trust or replay a sensitive operation.
 
 ## MVP acceptance criteria
 
-The MVP product baseline is accepted when all of the following are true in a validated implementation:
+The expanded MVP is complete only when:
 
-1. A user can discover and securely pair one iPhone with one intended Mac through a user-confirmed flow.
-2. The iPhone clearly communicates the connection lifecycle and does not treat discovery as trust.
-3. The user can view the supported Mac application catalog and create a Dock by adding, removing, and reordering items.
-4. Dock configuration remains intact across ordinary reconnection and supported app relaunch scenarios.
-5. A user tap produces a visible launch result, or a truthful actionable failure state.
-6. Already-running application activation is reported truthfully as successful, unsupported, denied, or unknown according to validated platform behavior.
-7. The foreground-only limitation is communicated and no unsupported background guarantee is made.
-8. Security, privacy, accessibility, and recovery validation results are documented before the MVP is declared complete.
+1. One iPhone and one Mac complete reviewed peer authentication and explicit authorization without relying on discovery as trust.
+2. Core Dock behavior, launch/activation outcome semantics, and persistence are validated.
+3. Each F2–F8 capability has an explicit support matrix, permissions, denied/unsupported states, tests, and documented limitations.
+4. High-risk input and clipboard operations require visible, revocable, operation-appropriate authorization.
+5. Disconnect, reconnect, stale callbacks, lost acknowledgments, duplicate delivery, revocation, and changed-peer cases are tested without unsafe replay.
+6. Privacy, accessibility, physical-device, distribution, and foreground-only limitations are documented.
 
-## Product states and user-visible errors
+## Requirements versus assumptions
 
-| State or error | User-visible meaning | Expected recovery |
-| --- | --- | --- |
-| No Mac found | No eligible Mac is currently discoverable | Check local network and retry discovery |
-| Mac found, not paired | A Mac is available but not trusted | Start and confirm pairing on both devices |
-| Pairing rejected or expired | Pairing was not completed or its confirmation window ended | Retry pairing; do not silently trust the device |
-| Disconnected | The trusted connection is unavailable | Retry or wait for reconnecting state |
-| Reconnecting | MacDock is attempting bounded recovery | Wait, retry, or open recovery guidance |
-| Application unavailable | The selected app is no longer available or permitted | Refresh the catalog and choose another item |
-| Launch failed | The Mac did not confirm a successful launch | Retry and preserve Dock configuration |
-| Activation unsupported or unknown | Running-app activation cannot be guaranteed | Inform the user without claiming success |
-| Foreground required | The iOS app is not in the supported foreground state | Return to MacDock on the iPhone |
-
-## Requirements versus assumptions to validate
-
-The requirements above define intended user-visible behavior. The following are assumptions, not commitments, until validated by Stage 0 research:
-
-- Bonjour and Network.framework provide the required local discovery and transport behavior under current Apple permissions and platform versions.
-- The selected secure pairing design can provide mutual user confirmation, peer authentication, key storage, encrypted transport, expiration, and recovery without unacceptable UX friction.
-- The Mac can produce a useful application catalog with stable identity, display name, icon representation, and launch eligibility.
-- macOS APIs and permissions allow reliable launch and activation/focus behavior for the supported application classes.
-- The iPhone can maintain the required foreground experience and optionally control the idle timer without harmful battery or thermal behavior.
-- The chosen persistence boundary is sufficient for one Mac and one iPhone without prematurely designing multi-device synchronization.
-- The proposed connection states and retry behavior can be made deterministic enough for testing.
-
-Stage 0 research Issues own the evidence and limitations for these assumptions. No assumption should be treated as an API guarantee until documented and verified.
+Requirements define intended product behavior. They do not prove API feasibility. The following remain evidence questions: universal media control, whole-system network telemetry, speed-test implementation, peripheral battery coverage, Accessibility/Input Monitoring distribution, Secure Input behavior, and iOS/macOS clipboard privacy behavior. Current-SDK compilation is not minimum-OS runtime validation.
 
 ## Open product decisions
 
-- Which macOS and iOS minimum versions are supported?
-- Which application classes are included in the initial catalog, and how are duplicates or unavailable apps represented?
-- What exact user-visible behavior is required when launch or activation returns an unknown result?
-- Should the MVP include optional Keep Screen Awake, and what user setting, battery messaging, and restoration behavior are acceptable?
-- What is the preferred recovery path after a trusted pairing becomes invalid or a Mac is reinstalled?
-- Which accessibility and localization requirements are release blockers for the first public build?
+- Exact minimum OS versions, distribution model, and App Sandbox/entitlement posture.
+- Supported media-player matrix and whether speed testing ships in the first public build.
+- Acceptable partial battery coverage and stale-data thresholds.
+- Whether constrained keyboard input is included in the first public release despite permission and protected-context limitations.
+- Accessibility/Input Monitoring UX and distribution acceptability for pointer/keyboard.
+- Clipboard content types, maximum size, expiration, and user-confirmation wording.
+- Final pairing construction, transcript, identity algorithm, revocation, and recovery, subject to ADR 0003 review.
 
-## Out of scope for the MVP
+## Explicitly out of scope
 
-- Touchpad input.
-- Keyboard input.
-- Media and volume controls.
-- Clipboard synchronization.
-- Multiple Mac support.
-- Profiles, groups, and advanced visual customization.
-- Always-on background Dock behavior on iOS.
-- Cloud accounts, remote access over the internet, and multi-user synchronization.
+- Public-internet remote control, cloud accounts, or cloud synchronization.
+- Arbitrary shell execution, unrestricted administration, arbitrary paths, or privilege escalation.
+- Multi-Mac or multi-iPhone pairing.
+- Guaranteed always-on iOS background operation.
+- Hidden pointer/keyboard control, keylogging, screen capture, or Secure Input bypass.
+- Automatic continuous clipboard monitoring.
+- Private Apple APIs or unverified universal media/player/peripheral support.

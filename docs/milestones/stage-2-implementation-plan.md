@@ -6,7 +6,7 @@
 
 ## Scope and boundary
 
-Stage 2 establishes local discovery, bounded transport, secure pairing, peer trust, authorized sessions, and recovery. Discovery is untrusted. Transport connectivity is not authentication. TLS encryption is not authorization. No application-control operation may be exposed until the security gates in this plan pass.
+Stage 2 establishes local discovery, bounded transport, secure pairing, peer trust, authorized sessions, and recovery. Discovery is untrusted. Transport connectivity is not authentication. TLS encryption is not authorization. No product operation may be exposed until the security gates in this plan and the proposed [expanded MVP authorization and privacy requirements](../security/expanded-mvp-authorization-and-privacy-requirements.md) pass.
 
 The plan is intentionally incremental for a single developer. Each Issue has a reviewable boundary and may use isolated test fixtures without enabling remote control.
 
@@ -55,7 +55,13 @@ Before trusted sessions:
 8. Authorization is a separate gate from TLS and transport readiness.
 9. Negative tests cover wrong peer, replay, stale trust, interruption, duplicate messages, and reconnect without replay.
 
-Until these gates pass, permitted work is limited to discovery, transport lifecycle, bounded framing, diagnostics, and isolated test exchanges. Inventory, Dock synchronization, launch, activation, arbitrary paths, and shell commands remain prohibited.
+Until these gates pass, permitted work is limited to discovery, transport lifecycle, bounded framing, diagnostics, isolated test exchanges, and separately documented feasibility spikes. Inventory, Dock synchronization, launch, activation, audio, media, telemetry, battery, pointer, keyboard, clipboard, arbitrary paths, and shell commands remain prohibited.
+
+## Expanded MVP authorization dependency
+
+The expanded MVP adds capabilities with different risk levels. Before any production control handler is implemented, the project must review capability negotiation, deny-by-default policy, session-level versus operation-level authorization, explicit consent for input and clipboard operations, grant expiry/revocation, telemetry minimization, and no-replay behavior. The addendum is a requirements dependency, not an implementation or cryptographic decision.
+
+The implementation order is: complete the Issue #52 construction gate and Issue #53 identity work; review the authorization/privacy addendum; complete isolated platform feasibility spikes; then implement Core Dock and capability handlers one category at a time. Reconnection must invalidate sensitive grants and resynchronize state rather than replaying non-idempotent operations.
 
 ## Reuse and non-reuse of Stage 0 evidence
 

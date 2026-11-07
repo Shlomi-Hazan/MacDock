@@ -1,82 +1,68 @@
 # MacDock Roadmap
 
-## Stage 0 — Discovery and feasibility
+This roadmap describes approved product planning. A capability listed below is not implemented merely because it appears in the roadmap. GitHub milestone renaming and migration will occur only in a separate, explicitly approved tracking change; current milestone names may temporarily differ.
 
-Purpose: validate platform assumptions before production implementation.
+## Stage 0 — Discovery & Feasibility
 
-Deliverables:
+Completed. Historical scope and evidence are preserved, including platform research, Bonjour and TLS experiments, application discovery/activation experiments, the pairing threat model, and documented limitations.
 
-- MVP requirements and constraints.
-- Product journey, use cases, state glossary, and testable MVP acceptance criteria.
-- Apple API research.
-- Bonjour discovery experiment.
-- Transport and TLS experiment.
-- macOS launch and activation experiment.
-- Pairing threat model.
-- Platform limitation documentation.
-- Initial ADRs.
+## Stage 1 — Architecture & Foundation
 
-Completion criteria:
+Completed. The native targets, Foundation-only shared package, bounded framing, pure lifecycle models, application shells, CI, and acceptance review are preserved. ADR 0008 records the accepted Conditional Go boundary. No trusted session or application-control capability was enabled.
 
-- Product requirements distinguish user-facing requirements from technical assumptions.
-- MVP boundaries, error states, and unresolved product decisions are documented.
-- Experiments have recorded results and limitations.
-- Pairing and transport decisions are justified.
-- Stage 1 dependencies and acceptance criteria are documented.
+## Stage 2 — Connection & Secure Pairing
 
-## Stage 1 — Architecture and foundation
+In progress. See [Stage 2 implementation plan](docs/milestones/stage-2-implementation-plan.md).
 
-- Xcode workspace and targets.
-- Minimal shared Swift module where justified.
-- Protocol definitions.
-- CI build and test workflows.
-- Testing foundations.
+Deliverables are untrusted Bonjour discovery, bounded Network.framework transport, device identity and secure storage, QR-first pairing, two-sided confirmation, mutually authenticated sessions, persistent trust, revocation/recovery, reconnection/resynchronization, and independent security review.
 
-Stage 1 foundation implementation and acceptance review are complete. ADR 0008 records the maintainer-approved Conditional Go boundary. The Stage 1 milestone is closed; no trusted session or application-control capability was enabled.
+Stage 2 must not expose Dock, application, audio, media, network-control, battery-control, pointer, keyboard, clipboard, or other remote-control endpoints before authentication and the relevant capability authorization gates pass. ADR 0003 remains Proposed.
 
-## Stage 2 — Connection and pairing
+## Stage 3 — Product Design & Core Dock
 
-- [Stage 2 implementation plan](docs/milestones/stage-2-implementation-plan.md)
-- [Issue #38 — Pairing security specification](https://github.com/Shlomi-Hazan/MacDock/issues/38)
-- [Issue #39 — Bonjour candidate discovery](https://github.com/Shlomi-Hazan/MacDock/issues/39)
-- [Issue #40 — Network.framework transport](https://github.com/Shlomi-Hazan/MacDock/issues/40)
-- [Issue #41 — Device identity and secure storage](https://github.com/Shlomi-Hazan/MacDock/issues/41)
-- [Issue #42 — QR-first pairing](https://github.com/Shlomi-Hazan/MacDock/issues/42)
-- [Issue #43 — Authenticated sessions](https://github.com/Shlomi-Hazan/MacDock/issues/43)
-- [Issue #44 — Trust revocation and recovery](https://github.com/Shlomi-Hazan/MacDock/issues/44)
-- [Issue #45 — Reconnection and resynchronization](https://github.com/Shlomi-Hazan/MacDock/issues/45)
-- [Issue #46 — Stage 2 integration review](https://github.com/Shlomi-Hazan/MacDock/issues/46)
+Workstreams: design system and information architecture; Mac application catalog and identity; iPhone Dock presentation; persistence and customization; launch/activation outcome semantics; accessibility baseline.
 
-Ordering and gates:
+Dependencies: accepted Stage 2 peer authentication and the proposed expanded-MVP authorization/privacy requirements. Completion requires no arbitrary paths or shell operations, truthful outcomes, persistence/reconnection tests, and a reviewed capability boundary.
 
-1. Security specification and identity assumptions must be reviewed before pairing implementation.
-2. Discovery and transport may be implemented as non-authorizing foundations.
-3. Two-sided pairing, identity binding, Keychain trust, revocation, and recovery must pass security review before trusted sessions.
-4. Reconnection must preserve authorization and never replay non-idempotent commands automatically.
-5. Stage 2 completion requires physical-device evidence, negative security tests, and a separate acceptance review.
+## Stage 4 — Mac Control Center
 
-Stage 2 does not authorize application inventory, Dock synchronization, launch, activation, cloud connectivity, or unsupported iOS background execution.
+Workstreams: supported audio volume/mute; validated media-player integrations; network telemetry and optional bounded speed test; Mac/iPhone/peripheral battery information; per-capability authorization and error states.
 
-## Stage 3 — Core Dock MVP
+Dependencies: focused feasibility spikes, public API evidence, permission/distribution findings, and operation-level authorization. Unsupported or unavailable platform behavior must remain visible rather than simulated.
 
-- Mac application discovery.
-- iPhone Dock persistence and customization.
-- Application launch and activation.
-- State synchronization.
+## Stage 5 — Remote Interaction & Clipboard
 
-## Stage 4 — Hardening and quality
+Workstreams: foreground touchpad/pointer movement; constrained keyboard text insertion; explicit one-shot clipboard transfer; permission UX; short-lived high-risk grants; disconnect, cancellation, and replay safeguards.
 
-- Unit, integration, and UI tests.
-- Security review.
-- Reliability and performance validation.
-- Accessibility and onboarding.
+Dependencies: Accessibility/Input Monitoring and Secure Input validation, clipboard privacy review, explicit consent design, and stricter non-idempotent operation handling. No background iOS dependency is allowed.
 
-## Stage 5 — Release preparation
+## Stage 6 — Hardening & Quality
 
-- Signing and packaging.
-- Notarization research.
-- TestFlight preparation.
-- Installation documentation.
-- Public release notes.
+Security/privacy review; unit, integration and UI tests; physical-device compatibility; accessibility/localization; performance and resource usage; reconnect/revocation regression; permission-denial and unsupported-hardware scenarios; safe logging review.
 
-Advanced controls remain candidates for later milestones and require separate scope decisions.
+Completion requires evidence across positive, negative, interrupted, stale, revoked, and unavailable states.
+
+## Stage 7 — Release Preparation
+
+Code signing, packaging, notarization and TestFlight preparation; Sandbox/entitlement validation; installation/onboarding/recovery/uninstall documentation; supported-platform disclosures and release notes.
+
+Completion requires reproducible release artifacts, documented permissions, clean privacy review, and explicit exclusions for cloud access, shell execution, hidden input, and unsupported APIs.
+
+## Cross-stage gates and dependencies
+
+```text
+Stage 2 security requirements + identity + pairing approval
+                 |
+                 v
+Stage 3 Core Dock ----+----> Stage 4 Control Center
+                     |                 |
+                     +----------------> Stage 5 Interaction & Clipboard
+                                      |
+                                      v
+                              Stage 6 Hardening
+                                      |
+                                      v
+                              Stage 7 Release
+```
+
+Feasibility spikes for audio/media, network telemetry/speed testing, battery, input permissions, and clipboard may run as isolated research while Stage 2 is completed. They do not authorize production endpoints or alter ADR 0003.
