@@ -107,15 +107,15 @@ private final class ConnectionBox: @unchecked Sendable {
 private final class ListenerSession: @unchecked Sendable {
     private let lock = NSLock()
     private let connection: NWConnection
-    private let finished: DispatchSemaphore
+    private let onFinish: () -> Void
     private var exchangeStarted = false
     private var didFinish = false
     private var timeoutWorkItem: DispatchWorkItem?
     private var responseWorkItem: DispatchWorkItem?
 
-    init(connection: NWConnection, finished: DispatchSemaphore) {
+    init(connection: NWConnection, onFinish: @escaping () -> Void) {
         self.connection = connection
-        self.finished = finished
+        self.onFinish = onFinish
     }
 
     func beginExchange() -> Bool {
@@ -147,7 +147,7 @@ private final class ListenerSession: @unchecked Sendable {
         lock.unlock()
         print(reason)
         connection.cancel()
-        finished.signal()
+        onFinish()
     }
 
     func scheduleResponse(on queue: DispatchQueue, after delay: TimeInterval, connection: NWConnection, exporter: Data) {
@@ -190,19 +190,34 @@ private final class ListenerSession: @unchecked Sendable {
     }
 }
 
-private final class ListenerSessionBox: @unchecked Sendable {
+private final class ListenerSessionRegistry: @unchecked Sendable {
     private let lock = NSLock()
-    private var storedValue: ListenerSession?
+    private var sessions: [Int: ListenerSession] = [:]
+    private var nextID = 1
 
-    var value: ListenerSession? {
-        get {
-            lock.lock(); defer { lock.unlock() }
-            return storedValue
+    func insert(connection: NWConnection) -> (id: Int, session: ListenerSession) {
+        lock.lock()
+        let id = nextID
+        nextID += 1
+        let session = ListenerSession(connection: connection) { [weak self] in
+            self?.remove(id: id)
         }
-        set {
-            lock.lock(); defer { lock.unlock() }
-            storedValue = newValue
-        }
+        sessions[id] = session
+        lock.unlock()
+        return (id, session)
+    }
+
+    func finishAll(reason: String) {
+        lock.lock()
+        let currentSessions = Array(sessions.values)
+        lock.unlock()
+        currentSessions.forEach { $0.finish(reason: reason) }
+    }
+
+    private func remove(id: Int) {
+        lock.lock()
+        sessions.removeValue(forKey: id)
+        lock.unlock()
     }
 }
 
@@ -371,24 +386,22 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
     let serverTLS = TLSChannelBindingProbe.makeTLSOptions(identity: identity.value, requirePeerAuthentication: false)
     let parameters = NWParameters(tls: serverTLS, tcp: NWProtocolTCP.Options())
     let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
-    let finished = DispatchSemaphore(value: 0)
-    let accepted = ConnectionBox()
-    let sessionBox = ListenerSessionBox()
+    let listenerFinished = DispatchSemaphore(value: 0)
+    let sessions = ListenerSessionRegistry()
 
     listener.stateUpdateHandler = { state in
         print("listener state: \(state)")
         if case .failed(let error) = state {
             print("listener failure: \(error)")
-            finished.signal()
         }
     }
     listener.newConnectionHandler = { connection in
-        accepted.value = connection
-        let acceptedSession = ListenerSession(connection: connection, finished: finished)
-        sessionBox.value = acceptedSession
-        print("listener accepted connection")
+        let accepted = sessions.insert(connection: connection)
+        let sessionID = accepted.id
+        let acceptedSession = accepted.session
+        print("listener accepted connection session=\(sessionID)")
         connection.stateUpdateHandler = { state in
-            print("server connection state: \(state)")
+            print("server connection state session=\(sessionID): \(state)")
             acceptedSession.handleTransportState(state)
             guard case .ready = state else { return }
             guard acceptedSession.beginExchange() else { return }
@@ -416,12 +429,16 @@ private func runListener(identity: TestIdentity, port: UInt16, duration: TimeInt
         connection.start(queue: queue)
     }
     listener.start(queue: queue)
-    if case .success = finished.wait(timeout: .now() + duration) {
-        sessionBox.value?.finish(reason: "listener session finished")
-    } else {
-        print("listener timeout: no completed diagnostic exchange")
-        sessionBox.value?.finish(reason: "listener duration expired")
+    let stopWorkItem = DispatchWorkItem {
+        print("listener duration expired")
+        sessions.finishAll(reason: "listener duration expired")
+        listener.cancel()
+        listenerFinished.signal()
     }
+    queue.asyncAfter(deadline: .now() + duration, execute: stopWorkItem)
+    listenerFinished.wait()
+    stopWorkItem.cancel()
+    sessions.finishAll(reason: "listener stopped")
     listener.cancel()
 }
 

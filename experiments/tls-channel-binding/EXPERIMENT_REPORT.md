@@ -468,6 +468,10 @@ The maintainer executed this test on a physical iPhone 14 Pro Max using the vali
 
 #### Test F — Reconnection after a completed exchange
 
+The maintainer executed Test F with a valid certificate and `--duration 180`. Attempt 1 completed with `Diagnostic exchange complete (unverified)`, but Attempt 2 ended at `Timeout: no verified exchange`. The Mac log contained only one `listener accepted connection` and one TLS-ready sequence. This is **FAIL / INVESTIGATION REQUIRED**: the first exchange succeeded, but the second attempt timed out without a second accepted connection in the available Mac logs. The evidence does not by itself distinguish listener lifecycle, accepted-session cleanup, iOS connection state, or network timing.
+
+Source inspection established the immediate lifecycle defect: `runListener` waited on a semaphore that every completed `ListenerSession` signalled, then cancelled the listener after the first diagnostic exchange. Therefore the documented `--duration` was not the listener lifetime; it was effectively capped by the first session. The listener now remains active for the requested duration, tracks each accepted connection in an opaque per-session registry, cleans sessions independently, and logs session-scoped state transitions. This is an experiment-only fix; it does not change TLS, trust, pairing, or authorization.
+
 Use the existing fixture under `/private/tmp/macdock-tls-expired.0WtQhP/` only while it remains available and valid. Its valid server certificate is expected to expire on November 14, 2026. Verify the dates before use, then start:
 
 ```sh
@@ -478,7 +482,7 @@ swift run TLSChannelBindingProbe --runtime --listen \
   --port 4433 --duration 180
 ```
 
-On the iPhone, use the matching Mac hostname, TLS server name, and public contents of `ca.pem`. Tap `Start experiment` once and wait for `Diagnostic exchange complete (unverified)`. Confirm Start is enabled again, then tap Start once more and wait for a second completion. Record two separate `listener accepted connection`, TLS-ready, and local diagnostic-response send sequences. Expected invariants: two independent Network.framework connections, no state leakage, no displayed or persisted exporter bytes, and no implication of TLS session resumption or production pairing. A successful send remains local evidence only; it is not remote receipt.
+On the iPhone, use the matching Mac hostname, TLS server name, and public contents of `ca.pem`. Tap `Start experiment` once and wait for `Diagnostic exchange complete (unverified)`. Confirm Start is enabled again, then tap Start once more and wait for a second completion. Record two separate `listener accepted connection session=...`, TLS-ready, and local diagnostic-response send sequences. Expected invariants: two independent Network.framework connections, no state leakage, no displayed or persisted exporter bytes, and no implication of TLS session resumption or production pairing. A successful send remains local evidence only; it is not remote receipt.
 
 For an interrupted-then-recovered variant, stop the listener during an active attempt, wait for the iPhone to reach its terminal failure/timeout state, restart the same valid listener, and start a new attempt only after the previous attempt is terminal. The new exchange must be a fresh connection; no automatic replay is expected.
 

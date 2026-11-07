@@ -101,7 +101,7 @@ final class ChannelBindingClientModel: ObservableObject {
         activeAttempt = attempt
         isRunning = true
         status = "Connecting (unverified candidate)"
-        transportLogger.info("starting transport attempt")
+        transportLogger.info("starting transport attempt generation: \(attempt, privacy: .public)")
         let options = NWProtocolTLS.Options()
         sec_protocol_options_set_peer_authentication_required(options.securityProtocolOptions, true)
         sec_protocol_options_set_min_tls_protocol_version(options.securityProtocolOptions, .TLSv13)
@@ -126,7 +126,7 @@ final class ChannelBindingClientModel: ObservableObject {
         newConnection.stateUpdateHandler = { [weak self] state in
             DispatchQueue.main.async {
                 guard let self, self.activeAttempt == attempt, self.connection === newConnection else { return }
-                transportLogger.info("connection state: \(String(describing: state), privacy: .public)")
+                transportLogger.info("connection state generation=\(attempt, privacy: .public): \(String(describing: state), privacy: .public)")
                 switch state {
                 case .preparing:
                     self.status = "TLS preparing"
