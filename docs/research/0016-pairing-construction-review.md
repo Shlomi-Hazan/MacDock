@@ -11,12 +11,33 @@ This document establishes a security gate before production pairing implementati
 
 The current recommendation is to investigate a TLS 1.3 transport combined with an application-layer, identity-signing transcript bound to the QR bootstrap and the authenticated TLS session. This is only a candidate architecture. The exact identity algorithm, certificate or public-key binding, transcript encoding, SAS derivation, and trust-commit protocol remain unresolved and require independent cryptographic review, test vectors, and maintainer approval.
 
+## Candidate A construction-specification outline
+
+This outline is the next reviewable research deliverable. It is a decision matrix, not a selected protocol or an implementation authorization.
+
+| Topic | Existing evidence or requirement | Decision still required | Gate before implementation |
+| --- | --- | --- | --- |
+| Device identity and signing | ADR 0003 requires durable public-key identity; CryptoKit and Keychain/Secure Enclave feasibility is documented but not fully validated on minimum OS versions | Exact signing algorithm, public-key encoding, generation ownership, and replacement semantics | Platform feasibility matrix, test vectors, independent review |
+| Identity protection | Private material must remain platform-local; Issue #41 defines fail-closed storage boundaries | Keychain accessibility, Secure Enclave use, locked-device behavior, backup/reinstall and crash recovery | Real adapter design and physical validation |
+| TLS authentication and peer binding | TLS 1.3 and scoped certificate verification succeeded experimentally; exporter equality was observed on the tested physical pair | Exact peer certificate/public-key binding and relationship to long-term identity; TLS resumption and early-data policy | Protocol specification and negative tests |
+| Channel binding | Public metadata APIs produced matching same-session values in the experiment | Fixed domain, label, context, length, session lifecycle, and failure semantics | Canonical fixtures and review of channel-substitution/UKS resistance |
+| Canonical transcript | Existing proposal includes roles, identities, nonces, QR data and TLS binding | Versioned deterministic encoding, field ordering, duplicate/unknown-field policy and signature inputs | Approved schema and vectors |
+| QR bootstrap | QR is an out-of-band bootstrap, not authentication by itself | Payload, expiry, nonce/session ID, one-time use, origin display and cancellation | Threat review and replay tests |
+| Freshness and replay | Requirements demand freshness and replay resistance | Nonce/session construction, duplicate handling, retransmission and timeout rules | Negative vectors and state-machine review |
+| SAS and confirmation | Two-sided human confirmation is required; relay limitations remain explicit | SAS derivation, display encoding, comparison rules, user rejection and final authenticated confirmation | Independent review and physical UX tests |
+| Threats | Requirements cover MITM, UKS, downgrade, role confusion and relay limits | Exact proof obligations and residual relay assumptions | Adversarial review |
+| Trust lifecycle | Pending, committed, revoked and recovery states are required | Atomic commit protocol, interrupted pairing, replacement, revocation and lost-device recovery | Keychain/crash tests and acceptance decision |
+| Test vectors | None are accepted yet | Positive, wrong-role, wrong-peer, changed-QR, replay, truncation, mismatch and recovery fixtures | Deterministic vector set reviewed independently |
+| Independent review | Self-review is insufficient | Reviewer and review scope for construction, transcript and platform assumptions | Explicit review record and maintainer approval |
+
+The working research sequence is: (1) freeze the requirements and threat model; (2) compare exact identity and channel-binding alternatives; (3) specify one transcript candidate with negative vectors; (4) validate Apple API and storage assumptions; (5) obtain independent cryptographic review; and only then (6) authorize production pairing implementation. ADR 0003 remains Proposed throughout this sequence.
+
 ## Evidence classification
 
 | Claim | Classification |
 | --- | --- |
 | Network.framework can provide a TLS transport integration seam | Documentation-based; the Stage 0 transport experiment validated only a test transport and fingerprint check |
-| Public Security APIs expose TLS-derived secrets, peer public-key material, and certificate-chain access from protocol metadata | Documentation-based; exact macOS 14/iOS 17 availability and Swift integration remain to be compiled and exercised |
+| Public Security APIs expose TLS-derived secrets, peer public-key material, and certificate-chain access from protocol metadata | Documentation-based and exercised in the isolated probe; minimum macOS 14/iOS 17 runtime behavior remains unverified |
 | TLS 1.3 provides encrypted, integrity-protected records and a handshake transcript | Standards-based; see [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446.html) |
 | Apple platforms expose CryptoKit and device-dependent Secure Enclave APIs | Documentation-based; see [CryptoKit](https://developer.apple.com/documentation/cryptokit) and [SecureEnclave](https://developer.apple.com/documentation/cryptokit/secureenclave) |
 | A concrete MacDock pairing construction is secure | Not established; requires design selection, review, implementation, vectors, and device tests |
@@ -124,8 +145,8 @@ The `create_secret` functions are exporter-like public APIs and are the stronges
 
 ### What remains unverified
 
-- The repository has not compiled a targeted adapter against the macOS 14 and iOS 17 SDK interfaces for these functions.
-- No physical Mac/iPhone test has compared exporter-derived values across the two ends of the same TLS session.
+- The repository has compiled and exercised an isolated adapter against the installed SDK interfaces for these functions.
+- A maintainer-reported physical Mac/iPhone test compared exporter-derived values across the two ends of the same TLS session; this is not tool-executed evidence and does not establish production authentication.
 - No test has established behavior across reconnect, TLS resumption, early data, listener restart, or certificate/key replacement.
 - The relationship between an exporter-derived value and the selected long-term CryptoKit/Secure Enclave identity is not yet specified.
 - The public API surface does not remove the need for a reviewed certificate/public-key verification policy.
@@ -139,7 +160,54 @@ The `create_secret` functions are exporter-like public APIs and are the stronges
 | Mutual TLS device credentials | Certificate issuance, trust-anchor distribution, rotation, revocation, and recovery | Public APIs support the mechanics, but lifecycle is heavy and unreviewed |
 | Alternative reviewed handshake such as a concrete Noise pattern | Reviewed implementation/library, identity binding, transcript vectors, and integration with Network.framework | Fallback if TLS binding cannot meet the required properties |
 
-Candidate A therefore **requires further platform feasibility testing** before formal construction specification. No API evidence currently justifies marking it blocked, but no evidence justifies treating it as ready for production implementation.
+Candidate A therefore has **local Mac-to-Mac runtime feasibility evidence and one maintainer-reported physical Mac-to-iPhone runtime result**, but still requires negative physical trust tests, minimum-OS runtime validation, formal construction specification, and independent cryptographic review before any production implementation. No evidence justifies treating it as approved for production pairing.
+
+## Issue #52 isolated API-feasibility evidence
+
+The isolated probe in [`experiments/tls-channel-binding/`](../../experiments/tls-channel-binding/) compiled and ran its compile-only mode on the development Mac using Xcode 26.3, Swift 6.2.4, and the installed macOS 26.2 SDK. It references the public `NWProtocolTLS.Metadata` and `sec_protocol_metadata_*` APIs, uses an explicitly scoped trust callback for the runtime mode, and deliberately emits no secret material.
+
+The same source passed direct `swiftc -typecheck` against the installed iOS Simulator SDK for an arm64 iOS 17 simulator target. This is source-level compatibility evidence against a newer installed SDK, not runtime evidence on iOS 17. A SwiftPM cross-compile attempt was rejected because the invocation selected a macOS sysroot for an iPhone target; it does not establish an API limitation.
+
+The runtime extension was first executed with a temporary self-signed server certificate containing SAN entries but no explicit `keyUsage` or `extendedKeyUsage=serverAuth`; both endpoints remained in `preparing`, the verification callback was not invoked, and the run failed closed. This reproduced in an interactive Terminal, with private-key lookup and signing capability reported as available, so the earlier Keychain-prompt hypothesis is not supported.
+
+The same experiment was then repeated with a temporary certificate explicitly containing `subjectAltName=DNS:localhost,IP:127.0.0.1`, `keyUsage=digitalSignature,keyEncipherment`, and `extendedKeyUsage=serverAuth`. The listener and both connections reached `ready`; scoped trust evaluation succeeded; same-session exporter values were equal; separate sessions, alternate labels, and alternate contexts produced different values. This is executed Mac-to-Mac feasibility evidence only. A subsequent maintainer-reported physical Mac–iPhone run using `Shlomis-MacBook-Pro-2.local` and a temporary certificate with a matching DNS SAN displayed `Diagnostic exchange complete (unverified)` on the iPhone and logged the following on the Mac:
+
+```text
+listener state: ready
+listener accepted connection
+server connection state: preparing
+server connection state: ready
+server TLS ready; retrieving connection metadata
+server TLS metadata ready; diagnostic receive started
+server exporter response sent
+server diagnostic exchange complete
+```
+
+This physical result demonstrates the isolated exporter comparison across the tested endpoints, not device authentication, pairing, authorization, or independent cryptographic approval. Physical wrong-anchor/hostname and expired-certificate rejection are now demonstrated on the tested path; reconnection and cancellation, minimum-OS runtime compatibility, and independent cryptographic review remain outstanding. Candidate A is therefore supported for continued formal specification and review, not approved for production pairing.
+
+The local negative matrix additionally exercised an unrelated trust anchor and a `wronghost` certificate. Both failed closed without exporter success; the hostname mismatch reached the verify callback and produced certificate errors. The maintainer then demonstrated physical wrong-anchor rejection (`-67843`), physical hostname rejection (`-67602`), and physical expired-server-leaf rejection (`-67818`) with no TLS-ready or exporter-success state. The physical results are maintainer-reported evidence only; compilation and successful negative tests do not establish minimum-OS compatibility or construction approval.
+
+The maintainer subsequently performed two physical negative TLS tests. With the valid Mac certificate and an unrelated iPhone trust anchor, the iPhone verification callback reported `NSOSStatusErrorDomain` code `-67843` (`certificate unknown`) and the Mac reported `-9825` (`misc. bad certificate`). With the correct anchor but an expected hostname of `wronghost.local` while the certificate contained `DNS:Shlomis-MacBook-Pro-2.local`, the callback reported code `-67602` and the Mac again reported `-9825`. Neither test reached TLS ready or exporter exchange. These maintainer-reported results demonstrate fail-closed wrong-anchor and hostname rejection on the tested physical path; they do not establish identity authentication or pairing.
+
+The isolated iOS diagnostic UI now preserves the distinction between an explicit verification rejection and an unclassified timeout. This is a reporting improvement only; it does not change the fail-closed trust policy. The experiment still returns exporter-derived bytes over its fixed diagnostic exchange solely for feasibility comparison. That exchange is not a production protocol and must not be promoted unchanged into pairing or authenticated-session code.
+
+The maintainer repeated the wrong-trust-anchor test with the updated UI. The iPhone first displayed `Waiting: -9808: bad certificate format`, then reached `Failed: certificate verification rejected`, with Start enabled and Cancel disabled. This confirms physical UI propagation of an explicit trust rejection; the intermediate waiting code is not treated as the final certificate classification.
+
+The expired-certificate test was executed using a valid temporary CA and a separately signed expired server leaf with the required `serverAuth`, key-usage, and DNS SAN extensions. The iPhone trusted only the public CA certificate and reported `-67818`; the Mac reported `-9825`; neither endpoint reached TLS ready. This structure is intentional because an expired certificate used directly as a trust anchor can be evaluated differently from an expired server leaf. The result is maintainer-reported physical evidence, not cryptographic construction approval.
+
+For connection lifecycle validation, the maintainer reported two physical cancellation scenarios. In D.1, cancellation during TLS `preparing` produced a Mac-observed POSIX 54 connection reset followed by `cancelled`, with no diagnostic completion; this is a PASS for that observed timing window. In D.2, cancellation after TLS ready left the iPhone in terminal `Cancelled` with no late UI success, while the Mac later reported local send completion and `remote receipt unverified`; this is a PASS for iPhone terminal-state and late-success suppression, not proof of cancellation propagation or remote receipt. The listener cancels delayed responses when a terminal connection state is observed and does not infer peer cancellation from silence.
+
+The maintainer then executed Test E by interrupting the Mac process with `Ctrl-C` during the eight-second diagnostic delay. The iPhone reached bounded terminal status `Timeout: no verified exchange`, re-enabled Start, and did not report diagnostic success. This is a PASS for bounded client failure, no false success, and UI recovery after server-process interruption. The supplied Mac output did not show an accepted-connection terminal state after `^C`, so explicit transport-close detection and graceful accepted-connection cleanup remain unverified.
+
+Test F initially failed on its second attempt: the first diagnostic exchange completed, the second iPhone attempt timed out, and the available Mac output contained only one accepted connection. Source inspection found that the listener used a session-completion semaphore and cancelled the listener as soon as the first session finished, despite accepting a duration parameter. The listener now uses the duration as its actual lifetime, tracks multiple accepted sessions independently, and emits opaque session-scoped state logs.
+
+After that correction, the maintainer reported two consecutive physical iPhone completions within one listener lifetime. The iPhone displayed `Diagnostic exchange complete (unverified)` for both explicit attempts. The Mac accepted six connection-level sessions: two reached TLS ready and completed local diagnostic sends; the other four ended in timeout, connection-refused, or `-9816: server closed session with no notification` paths before cancellation. This is **PASS for two independent physical Mac–iPhone TLS diagnostic exchanges**, not evidence of TLS session resumption, persistent pairing, durable trust, or authorization. Local send completion remains weaker than proof of remote application-level receipt.
+
+The available logs do not establish why six connection-level sessions corresponded to two user-level attempts. The opaque session IDs distinguish accepted connections, but there is no cross-device attempt correlation yet. The remaining uncertainty should be resolved by one controlled run that records iOS attempt-generation values together with Mac session IDs; no speculative transport redesign is warranted from the current evidence.
+
+Source inspection confirms that each iOS Start action creates a fresh `NWConnection` and increments a local attempt generation, while the Mac assigns a separate opaque ID when its listener accepts a connection. The IDs are not shared and must not be presented as cross-device correlation. The current evidence cannot distinguish endpoint resolution, path selection, retries, callbacks from earlier attempts, or an implementation defect. A shared diagnostic attempt ID could be introduced only inside the already verified experimental channel, but it is not required to establish TLS feasibility and would change the experiment message semantics. The next useful observation is therefore a controlled two-attempt run with both local logs captured side by side.
+
+The subsequent controlled Test F.2 supplied that observation: exactly two iOS attempt generations and exactly two independently accepted Mac sessions were reported. Both sessions reached TLS ready, passed scoped certificate verification, retrieved metadata, completed local exporter-response and diagnostic-response sends, and entered cancellation. The iPhone logs did not include final diagnostic-completion UI statuses for those attempts. This is successful sequential TLS connection evidence on the tested physical pair, with chronological rather than authenticated cross-device correlation. The earlier six-session anomaly remains documented as unreproduced and unexplained.
 
 ## Candidate transcript format
 

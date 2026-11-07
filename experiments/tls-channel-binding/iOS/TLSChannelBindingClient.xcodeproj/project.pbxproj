@@ -1,0 +1,227 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 71;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D10000010000000000000001 /* TLSChannelBindingClientApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000100000000000000001 /* TLSChannelBindingClientApp.swift */; };
+		D10000010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000100000000000000002 /* ContentView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D10000100000000000000001 /* TLSChannelBindingClientApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TLSChannelBindingClientApp.swift; sourceTree = "<group>"; };
+		D10000100000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D10000100000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D10000100000000000000004 /* TLSChannelBindingClient.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TLSChannelBindingClient.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D10000200000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D10000300000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				D10000300000000000000002 /* TLSChannelBindingClient */,
+				D10000300000000000000003 /* TLSChannelBindingClient */,
+				D10000300000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D10000300000000000000002 /* TLSChannelBindingClient */ = {
+			isa = PBXGroup;
+			children = (
+				D10000100000000000000001 /* TLSChannelBindingClientApp.swift */,
+				D10000100000000000000002 /* ContentView.swift */,
+			);
+			path = TLSChannelBindingClient;
+			sourceTree = "<group>";
+		};
+		D10000300000000000000003 /* TLSChannelBindingClient */ = {
+			isa = PBXGroup;
+			children = (
+				D10000100000000000000003 /* Info.plist */,
+			);
+			path = TLSChannelBindingClient;
+			sourceTree = "<group>";
+		};
+		D10000300000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D10000100000000000000004 /* TLSChannelBindingClient.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D10000400000000000000001 /* TLSChannelBindingClient */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D10000700000000000000002 /* Build configuration list for PBXNativeTarget "TLSChannelBindingClient" */;
+			buildPhases = (
+				D10000200000000000000002 /* Sources */,
+				D10000200000000000000001 /* Frameworks */,
+				D10000200000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TLSChannelBindingClient;
+			productName = TLSChannelBindingClient;
+			productReference = D10000100000000000000004 /* TLSChannelBindingClient.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D10000500000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					D10000400000000000000001 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = D10000700000000000000001 /* Build configuration list for PBXProject "TLSChannelBindingClient" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D10000300000000000000001;
+			productRefGroup = D10000300000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D10000400000000000000001 /* TLSChannelBindingClient */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D10000200000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D10000200000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D10000010000000000000001 /* TLSChannelBindingClientApp.swift in Sources */,
+				D10000010000000000000002 /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		D10000600000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TLSChannelBindingClient/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.macdock.experiment.tls-channel-binding";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D10000600000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TLSChannelBindingClient/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.macdock.experiment.tls-channel-binding";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D10000600000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+			};
+			name = Debug;
+		};
+		D10000600000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D10000700000000000000001 /* Build configuration list for PBXProject "TLSChannelBindingClient" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D10000600000000000000003 /* Debug */,
+				D10000600000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D10000700000000000000002 /* Build configuration list for PBXNativeTarget "TLSChannelBindingClient" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D10000600000000000000001 /* Debug */,
+				D10000600000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D10000500000000000000001 /* Project object */;
+}
