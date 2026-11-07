@@ -2,12 +2,12 @@
 
 - Status: Stage 1 foundation implemented; Stage 2 readiness under review
 - Issue: [#9](https://github.com/Shlomi-Hazan/MacDock/issues/9)
-- Scope: one Mac companion, one foreground iPhone client, local-first MVP
+- Scope: one Mac companion, one foreground iPhone client, local-first Mac Control Center MVP
 - Last reviewed: 2026-11-04
 
 ## Purpose and evidence
 
-This document turns the Stage 0 requirements, Apple API research, and isolated experiments into boundaries for Stage 1. It is not production implementation and does not finalize the cryptographic wire format.
+This document turns the requirements, Apple API research, and isolated experiments into boundaries for the staged product. It distinguishes proposed expanded-MVP architecture from implemented behavior and does not finalize the cryptographic wire format.
 
 Evidence is classified as follows:
 
@@ -26,13 +26,31 @@ The experiment targets remain isolated. Their code and test identities are not p
 |                             |   Bonjour discovery only       |                              |
 | - discovery and pairing UX  |   authenticated TLS session   | - listener and pairing       |
 | - Dock UI and local state   |                                | - app catalog and icons      |
-| - authenticated commands    |                                | - launch/activation service  |
+| - future authenticated UI   |                                | - future control services    |
 | - lifecycle and idle timer  |                                | - authorization and status   |
 +-----------------------------+                                +------------------------------+
         iOS-owned Dock state                         Mac-owned app inventory
 ```
 
 Bonjour identifies candidates only. It never creates a trusted peer. The Mac companion is the authority for Mac application inventory and launch/activation outcomes; the iPhone is the single writer for the user's Dock selection and ordering in the one-phone MVP.
+
+## Implementation and proposal status
+
+The implemented Stage 1 architecture is limited to native app shells, the Foundation-only shared package, bounded framing, pure lifecycle models, local lifecycle presentation, and CI. It does not include production discovery, pairing, identity persistence, authenticated sessions, application inventory, Dock synchronization, launch/activation, or any expanded control-center handler.
+
+The ownership boundaries below describe the approved target architecture and proposed future components. They are not evidence that those components exist. Stage 2 security decisions, ADR 0003, the final identity/transcript construction, and capability authorization remain pending review.
+
+## Proposed expanded-MVP control-center boundary
+
+The expanded control center adds capability handlers on the Mac and presentation/control surfaces on the foreground iPhone. These are proposed boundaries, not implemented components. Each handler must be independently authorized after peer authentication:
+
+- Core Dock: logical application catalog, Dock persistence, launch and activation outcomes.
+- Control Center: supported audio/media controls, network telemetry/speed-test lifecycle, and battery status.
+- Remote Interaction: foreground pointer movement, constrained text insertion, and explicit one-shot clipboard transfer.
+
+The Mac owns platform APIs and permission checks; the iPhone owns user intent, visible consent, local presentation, and cancellation. `MacDockShared` may contain only platform-neutral models, validation, and request/outcome types. There is no generic unrestricted command interface. Capability negotiation is allow-listed, deny-by-default, and separate from session authentication. Input and clipboard grants are short-lived and revocable; reconnect does not restore sensitive grants or replay non-idempotent requests.
+
+The following remain prohibited until their specific security and feasibility gates pass: application inventory/control in Stage 2, hidden pointer or keyboard control, input monitoring, unrestricted key events, continuous clipboard polling, arbitrary paths, shell commands, privilege escalation, and private Apple APIs.
 
 ## macOS companion boundary
 
@@ -62,9 +80,9 @@ The foreground iPhone app owns:
 
 The MVP does not depend on iOS background execution. When the app is inactive or backgrounded, the interactive Dock is unavailable by product contract. The app may retain local state and reconnect when it returns to the foreground.
 
-## Minimal production components
+## Minimal production components (implemented Stage 1 boundary)
 
-Start with two native app targets and one small shared Swift package only when Stage 1 needs it:
+Stage 1 established two native app targets and one small Foundation-only shared package:
 
 ```text
 MacDockShared (Foundation-only models, framing, pure state helpers)
@@ -74,7 +92,7 @@ MacDockMac (AppKit, Network,     MacDockiOS (SwiftUI/UIKit,
  NSWorkspace, Keychain)           Network, Keychain)
 ```
 
-Permitted dependency direction is from each platform app to the shared package. The shared package must not import AppKit, UIKit, Network.framework, SwiftUI, or Keychain. Pairing orchestration, platform permissions, UI, and OS application control remain in their platform targets.
+Permitted dependency direction is from each platform app to the shared package. The shared package must not import AppKit, UIKit, Network.framework, SwiftUI, or Keychain. Pairing orchestration, platform permissions, UI, and OS application control remain proposed platform-target responsibilities and are not implemented in Stage 1.
 
 Do not create separate networking, security, persistence, or domain packages until an actual dependency boundary, independent test seam, or reuse case justifies it. Experiments under `experiments/` are not imported by production targets.
 
@@ -121,7 +139,7 @@ Launch and activation results must preserve these distinctions:
 
 Lost acknowledgments must not cause automatic replay of potentially non-idempotent control requests. Reconnection should resynchronize inventory and Dock state instead of replaying stale commands.
 
-## State ownership and persistence
+## Proposed state ownership and persistence
 
 | State | Authority | Persistence/recovery rule |
 | --- | --- | --- |
@@ -157,7 +175,7 @@ The initial persistence API is intentionally deferred to Stage 1. A small Codabl
 | Launch/activation experiment | Separate request/accepted/running/frontmost outcomes | Assuming callback equals foreground success | Core Dock control |
 | iOS lifecycle experiment | Foreground-only lifecycle model and opt-in idle timer | Background execution guarantees or measured battery claims | iOS foundation/UX |
 
-## Stage 1 implementation blueprint
+## Historical Stage 1 implementation blueprint
 
 ### Recommended order
 

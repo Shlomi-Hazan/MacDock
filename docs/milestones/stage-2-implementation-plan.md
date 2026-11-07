@@ -1,12 +1,12 @@
 # Stage 2 — Connection and Pairing Implementation Plan
 
 - Milestone: [Stage 2 — Connection & Pairing](https://github.com/Shlomi-Hazan/MacDock/milestone/3)
-- Status: Planned; no production Stage 2 capability is enabled
+- Status: In progress; no production Stage 2 capability is enabled
 - Security baseline: [ADR 0007](../decisions/0007-stage-0-feasibility-decision.md), [ADR 0008](../decisions/0008-stage-1-integration-and-stage-2-readiness.md)
 
 ## Scope and boundary
 
-Stage 2 establishes local discovery, bounded transport, secure pairing, peer trust, authorized sessions, and recovery. Discovery is untrusted. Transport connectivity is not authentication. TLS encryption is not authorization. No application-control operation may be exposed until the security gates in this plan pass.
+Stage 2 establishes local discovery, bounded transport, secure pairing, peer trust, authorized sessions, and recovery. Discovery is untrusted. Transport connectivity is not authentication. TLS encryption is not authorization. No product operation may be exposed until the security gates in this plan and the proposed [expanded MVP authorization and privacy requirements](../security/expanded-mvp-authorization-and-privacy-requirements.md) pass.
 
 The plan is intentionally incremental for a single developer. Each Issue has a reviewable boundary and may use isolated test fixtures without enabling remote control.
 
@@ -27,9 +27,21 @@ Issues #38–#45 ── Issue #46  Stage 2 integration review
 
 Issue #39 may prototype untrusted discovery after the security boundary is understood. Issue #40 may implement non-authorizing transport seams. Issues #42–#45 must not create trusted sessions or control endpoints until the preceding security decisions are reviewed.
 
+## Current tracking state
+
+As of this review, Issues #38–#41 are closed. Issues #42–#46, #52, and #53 remain open. This reflects the current GitHub state; no open work is treated as complete by this plan.
+
+| Issues | Current state |
+| --- | --- |
+| #38–#41 | Closed; their reviewed deliverables remain historical evidence for the current Stage 2 work |
+| #42–#46 | Open; pairing, authenticated sessions, recovery, reconnection, and Stage 2 acceptance remain incomplete |
+| #52–#53 | Open; construction review and platform identity/secure-storage dependencies remain incomplete |
+
 ## Workstreams
 
-| Issue | Workstream | Initial status | Gate |
+The status column below records the initial planning state and is retained for historical traceability; it is not the current GitHub state.
+
+| Issue | Workstream | Historical initial status | Gate |
 | --- | --- | --- | --- |
 | [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38) | Pairing security specification and trust gates | Ready | First security review; ADR 0003 remains Proposed |
 | [#39](https://github.com/Shlomi-Hazan/MacDock/issues/39) | Production Bonjour candidate discovery | Backlog | Visibility only; no identity or trust |
@@ -55,7 +67,13 @@ Before trusted sessions:
 8. Authorization is a separate gate from TLS and transport readiness.
 9. Negative tests cover wrong peer, replay, stale trust, interruption, duplicate messages, and reconnect without replay.
 
-Until these gates pass, permitted work is limited to discovery, transport lifecycle, bounded framing, diagnostics, and isolated test exchanges. Inventory, Dock synchronization, launch, activation, arbitrary paths, and shell commands remain prohibited.
+Until these gates pass, permitted work is limited to discovery, transport lifecycle, bounded framing, diagnostics, isolated test exchanges, and separately documented feasibility spikes. Inventory, Dock synchronization, launch, activation, audio, media, telemetry, battery, pointer, keyboard, clipboard, arbitrary paths, and shell commands remain prohibited.
+
+## Expanded MVP authorization dependency
+
+The expanded MVP adds capabilities with different risk levels. Before any production control handler is implemented, the project must review capability negotiation, deny-by-default policy, session-level versus operation-level authorization, explicit consent for input and clipboard operations, grant expiry/revocation, telemetry minimization, and no-replay behavior. The addendum is a requirements dependency, not an implementation or cryptographic decision.
+
+The implementation order is: complete the Issue #52 construction gate and Issue #53 identity work; review the authorization/privacy addendum; complete isolated platform feasibility spikes; then implement Core Dock and capability handlers one category at a time. Reconnection must invalidate sensitive grants and resynchronize state rather than replaying non-idempotent operations.
 
 ## Reuse and non-reuse of Stage 0 evidence
 
