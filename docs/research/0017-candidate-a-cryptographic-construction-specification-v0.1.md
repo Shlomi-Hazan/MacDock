@@ -5,6 +5,7 @@
 - Status: Draft specification for independent review
 - Related research: [Pairing construction review](0016-pairing-construction-review.md), [device identity and secure storage](0015-device-identity-and-secure-key-storage.md), [secure pairing threat model](0005-secure-pairing-threat-model.md)
 - Related ADRs: [ADR 0003](../decisions/0003-qr-first-pairing-and-peer-authentication.md), [ADR 0005](../decisions/0005-network-transport-and-protocol-boundary.md), [ADR 0007](../decisions/0007-stage-0-feasibility-decision.md), [ADR 0008](../decisions/0008-stage-1-integration-and-stage-2-readiness.md)
+- Review package: [Candidate A independent cryptographic review readiness](0018-candidate-a-independent-cryptographic-review-readiness.md)
 
 > This document is a proposed construction specification. It is not a cryptographic proof, implementation authorization, or acceptance of ADR 0003. No production identity, pairing, trust persistence, or authorized session is implemented by this document.
 
