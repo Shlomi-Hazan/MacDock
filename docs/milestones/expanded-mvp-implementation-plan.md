@@ -1,6 +1,6 @@
 # Expanded MVP Implementation Plan
 
-Status: Proposed planning document. The capabilities below are planned, not implemented. This document does not migrate GitHub milestones, create Issues, accept ADR 0003, or authorize production control.
+Status: Proposed planning document. The capabilities below are planned, not implemented. The approved GitHub tracking migration is complete, but it does not accept ADR 0003 or authorize production control.
 
 ## Boundary and sequencing
 
@@ -28,9 +28,27 @@ Non-authorizing feasibility spikes ------------+
 
 The feasibility spikes may start while Stage 2 work continues. They do not depend on Issue #52 or pairing approval, do not expose production endpoints, and do not grant authorization. Production handlers remain blocked until the applicable Stage 2 security/authorization gate and the relevant feasibility evidence both pass.
 
+## GitHub tracking
+
+The approved tracking migration preserved Stage 0–2 history, renamed the Stage 3–5 milestones, created Stage 6 and Stage 7, and added the following dependency-linked planning records:
+
+- [#58 — Expanded MVP authorization and privacy review](https://github.com/Shlomi-Hazan/MacDock/issues/58)
+- [#59 — Audio and supported media feasibility](https://github.com/Shlomi-Hazan/MacDock/issues/59)
+- [#60 — Network telemetry and bounded speed test feasibility](https://github.com/Shlomi-Hazan/MacDock/issues/60)
+- [#61 — Battery telemetry feasibility](https://github.com/Shlomi-Hazan/MacDock/issues/61)
+- [#62 — Pointer and constrained keyboard feasibility](https://github.com/Shlomi-Hazan/MacDock/issues/62)
+- [#63 — Explicit clipboard feasibility](https://github.com/Shlomi-Hazan/MacDock/issues/63)
+- [#64 — Stage 3 Core Dock tracking](https://github.com/Shlomi-Hazan/MacDock/issues/64)
+- [#65 — Stage 4 Mac Control Center tracking](https://github.com/Shlomi-Hazan/MacDock/issues/65)
+- [#66 — Stage 5 Remote Interaction and Clipboard tracking](https://github.com/Shlomi-Hazan/MacDock/issues/66)
+- [#67 — Stage 6 hardening and quality tracking](https://github.com/Shlomi-Hazan/MacDock/issues/67)
+- [#68 — Stage 7 distribution and release tracking](https://github.com/Shlomi-Hazan/MacDock/issues/68)
+
+These records are planning and dependency-tracking artifacts. Research Issues may proceed independently, while production handlers remain gated by Stage 2 authentication, authorization, feasibility, and review requirements.
+
 ## Proposed workstreams and Issues
 
-No future Issue numbers are invented here. Each item should become a separate, dependency-linked Issue only after the maintainer approves the planning PR.
+The planning records above are now the canonical GitHub Issues for these workstreams. Their completion states must not be inferred from their existence, milestone assignment, or Project status.
 
 ### Planning and security
 
@@ -94,9 +112,9 @@ Reproducible signed/distribution artifacts, install and recovery documentation, 
 | Reconnect repeats non-idempotent operations | High | Lost-ack and stale-session tests | Request correlation and grant invalidation | 5/6 |
 | Entitlements and distribution reject privileged features | High | Sandbox/signing/TestFlight/notarization validation | Release gate; defer unsupported feature | 7 |
 
-## Migration plan
+## Tracking migration status
 
-This planning PR updates documentation only. After maintainer review, a separate tracking change may rename/re-scope existing empty milestones, create the Stage 3–7 milestones, create dependency-linked Issues, populate Project fields, and preserve historical Stage 0/1 records. No migration is performed here.
+The approved tracking migration has been completed separately from this planning document. Existing Stage 0–2 milestones and history were preserved; Stage 3–5 were renamed and re-scoped; Stage 6 and Stage 7 were created; and Issues #58–#68 were added to the existing MacDock Development Project with dependency, stage, priority, work type, and status metadata. This synchronization does not change the planned-versus-implemented boundary or authorize production control.
 
 ## Planned versus implemented
 
