@@ -432,11 +432,15 @@ After the run, stop the listener and remove the entire temporary directory with 
 
 ### Physical connection-lifecycle test preparation and evidence
 
-The following procedures test transport lifecycle only; they do not test pairing or trusted-session resumption. Test D has limited maintainer-reported evidence below, while the deterministic retest and Tests E/F remain outstanding.
+The following procedures test transport lifecycle only; they do not test pairing or trusted-session resumption. Test D has the maintainer-reported evidence below; Tests E/F remain outstanding.
 
 #### Test D — Explicit cancellation
 
-The maintainer reported two physical attempts using the valid temporary server certificate. In the first attempt, TLS and the diagnostic exchange completed before Cancel could be pressed; the Mac reported `server TLS ready`, `server exporter response sent`, and `server diagnostic exchange complete`. This is positive diagnostic evidence, not a cancellation result. In the second attempt, Cancel was pressed during the diagnostic delay; the iPhone displayed terminal status `Cancelled`, and Start became enabled again. The Mac nevertheless later reported `server exporter response sent` and `server diagnostic exchange complete`. Because a successful local send completion does not prove remote application-level receipt, and no post-cancellation transport state was captured, this is **Partial PASS**: iOS cancellation UI/state recovery is verified, while Mac-side post-cancellation completion and full cleanup require investigation. These are maintainer-reported physical observations, not automated test results.
+The maintainer reported two physical cancellation scenarios using the valid temporary server certificate. These are maintainer-reported observations, not automated test results.
+
+**D.1 — Cancellation during TLS preparing: PASS for the observed scenario.** The iPhone logged `starting transport attempt`, `connection state: preparing`, and `user cancelled transport attempt`. The Mac logged `server connection state: preparing`, then `failed(POSIXErrorCode(rawValue: 54): Connection reset by peer)`, `server connection failed before diagnostic completion: POSIXErrorCode(rawValue: 54): Connection reset by peer`, and `server connection state: cancelled`. No diagnostic exchange completed. This demonstrates an observed peer reset and deterministic iPhone cancellation state for this timing window; it does not prove every cancellation race is identical.
+
+**D.2 — Cancellation after TLS ready: PASS for iPhone terminal-state and late-success suppression; Mac cancellation propagation remains unproven.** With `--diagnostic-delay 8`, the Mac reached TLS ready, started the diagnostic delay, and later logged `server exporter response send completed locally; remote receipt unverified` and `server diagnostic response send completed locally; remote receipt unverified`. The maintainer confirmed that the iPhone was cancelled during the delay, remained in terminal status `Cancelled`, and showed no late success. A local send completion does not prove remote receipt, and no transport termination was observed in the supplied log. Full cancellation propagation and cleanup in every race remain unproven.
 
 The original harness sent the diagnostic response immediately after receiving `MDCB`, so physical cancellation before completion depended on timing. It now supports an experiment-only, opt-in server delay before sending that response. The delay is disabled by default, is bounded to 30 seconds, does not affect TLS negotiation, verification, or exporter derivation, and is cancelled with the per-connection session.
 
@@ -452,9 +456,13 @@ swift run TLSChannelBindingProbe --runtime --listen \
 
 On the iPhone, configure the valid host, port, matching TLS server name, and public certificate anchor. Tap `Start experiment` once. After the Mac reports `server diagnostic response delayed: 8.0s`, tap `Cancel` once. Record the final status and every subsequent Mac connection-state and send-completion line. Expected invariants: final status `Cancelled`, no iOS success, and Start enabled with Cancel disabled. A Mac line stating that a send completed locally is not evidence of remote receipt; only an observed transport failure/cancellation before the send, or an explicit application-level acknowledgment (not implemented by this experiment), can establish more. Repeat only after the first attempt is terminal; do not start concurrent attempts.
 
-#### Test E — Unexpected closure
+#### Test E — Unexpected listener closure
 
-Start the same listener command. Configure the iPhone with the valid certificate and tap Start once. While the attempt is active and before a successful diagnostic completion, stop the Mac listener with `Ctrl-C` in the Terminal. Record the iPhone terminal state and Mac output. Expected invariants: no diagnostic completion after interruption, no indefinite waiting, and a transport-close/failure or bounded timeout status. A certificate-verification callback must not be claimed unless it is actually logged; this test is distinct from trust rejection.
+Start the valid listener command above with `--diagnostic-delay 8`. Configure the iPhone with the valid certificate and tap `Start experiment` once. Wait for `server diagnostic response delayed: 8.0s`, then press `Ctrl-C` in the Mac Terminal before the delay expires. Record the iPhone terminal state, Xcode logs, and all Mac output after the interrupt.
+
+Interpret the result carefully: `Ctrl-C` definitely stops the listener, but it does not by itself prove that an already accepted connection was terminated. The test is valid only if the accepted connection subsequently reports `failed` or `cancelled`, or the iPhone reports a bounded transport failure/timeout with no later diagnostic completion. If the listener exits while the accepted connection remains alive and no terminal state is observed, classify the run as inconclusive. Do not assume a graceful listener stop is equivalent to abrupt process termination. No certificate-verification callback should be claimed unless it is actually logged.
+
+Expected invariants for a valid closure observation: no diagnostic completion after interruption, no indefinite waiting, deterministic cleanup, and a fresh attempt remains possible. If graceful stop does not terminate the accepted connection reliably, record the limitation first; an experiment-only abort-after-acceptance fault injection may then be considered as a separate focused change, but is not added preemptively.
 
 #### Test F — Reconnection after a completed exchange
 
