@@ -464,9 +464,21 @@ Interpret the result carefully: `Ctrl-C` definitely stops the listener, but it d
 
 Expected invariants for a valid closure observation: no diagnostic completion after interruption, no indefinite waiting, deterministic cleanup, and a fresh attempt remains possible. If graceful stop does not terminate the accepted connection reliably, record the limitation first; an experiment-only abort-after-acceptance fault injection may then be considered as a separate focused change, but is not added preemptively.
 
+The maintainer executed this test on a physical iPhone 14 Pro Max using the valid temporary certificate and `--diagnostic-delay 8`. The Mac reached TLS ready, entered the delayed-response state, and was interrupted with `Ctrl-C`. The iPhone ended at `Timeout: no verified exchange`, with Start enabled and Cancel disabled. No diagnostic success was reported. This is **PASS for bounded client failure, no false success, and UI recovery after server-process interruption**. It does not establish explicit transport-close detection on the iPhone, graceful cleanup of the accepted Mac connection, or behavior for every unexpected-closure race. The supplied Mac output ended after `^C`, so accepted-connection termination was not independently observed.
+
 #### Test F — Reconnection after a completed exchange
 
-Start the valid listener with a duration long enough for two attempts, for example `--duration 180`. On the iPhone, perform one valid Start and wait for `Diagnostic exchange complete (unverified)`. After Start is enabled again, tap Start once more. Record two separate `listener accepted connection` and `server diagnostic exchange complete` sequences. Expected invariants: the second attempt succeeds independently, no stale state affects it, no exporter value is displayed or persisted, and the first attempt does not authorize the second one.
+Use the existing fixture under `/private/tmp/macdock-tls-expired.0WtQhP/` only while it remains available and valid. Its valid server certificate is expected to expire on November 14, 2026. Verify the dates before use, then start:
+
+```sh
+swift run TLSChannelBindingProbe --runtime --listen \
+  --p12 /private/tmp/macdock-tls-expired.0WtQhP/server-valid.p12 \
+  --password-file /private/tmp/macdock-tls-expired.0WtQhP/password.txt \
+  --ca-cert /private/tmp/macdock-tls-expired.0WtQhP/ca.der \
+  --port 4433 --duration 180
+```
+
+On the iPhone, use the matching Mac hostname, TLS server name, and public contents of `ca.pem`. Tap `Start experiment` once and wait for `Diagnostic exchange complete (unverified)`. Confirm Start is enabled again, then tap Start once more and wait for a second completion. Record two separate `listener accepted connection`, TLS-ready, and local diagnostic-response send sequences. Expected invariants: two independent Network.framework connections, no state leakage, no displayed or persisted exporter bytes, and no implication of TLS session resumption or production pairing. A successful send remains local evidence only; it is not remote receipt.
 
 For an interrupted-then-recovered variant, stop the listener during an active attempt, wait for the iPhone to reach its terminal failure/timeout state, restart the same valid listener, and start a new attempt only after the previous attempt is terminal. The new exchange must be a fresh connection; no automatic replay is expected.
 
@@ -497,7 +509,7 @@ The future design must still address wrong-peer verification, channel substituti
 
 The following remain required before Candidate A can be treated as ready for formal construction approval:
 
-- Physical reconnection, cancellation, and unexpected-closure tests.
+- Physical reconnection and broader unexpected-closure cleanup tests.
 - Runtime validation on the provisional macOS 14 and iOS 17 minimum versions; the successful run used a newer environment and does not establish minimum-OS compatibility.
 - Independent cryptographic review of the exact identity, transcript, channel-binding, SAS, and trust-commit construction.
 
