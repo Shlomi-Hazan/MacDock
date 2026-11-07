@@ -11,6 +11,27 @@ This document establishes a security gate before production pairing implementati
 
 The current recommendation is to investigate a TLS 1.3 transport combined with an application-layer, identity-signing transcript bound to the QR bootstrap and the authenticated TLS session. This is only a candidate architecture. The exact identity algorithm, certificate or public-key binding, transcript encoding, SAS derivation, and trust-commit protocol remain unresolved and require independent cryptographic review, test vectors, and maintainer approval.
 
+## Candidate A construction-specification outline
+
+This outline is the next reviewable research deliverable. It is a decision matrix, not a selected protocol or an implementation authorization.
+
+| Topic | Existing evidence or requirement | Decision still required | Gate before implementation |
+| --- | --- | --- | --- |
+| Device identity and signing | ADR 0003 requires durable public-key identity; CryptoKit and Keychain/Secure Enclave feasibility is documented but not fully validated on minimum OS versions | Exact signing algorithm, public-key encoding, generation ownership, and replacement semantics | Platform feasibility matrix, test vectors, independent review |
+| Identity protection | Private material must remain platform-local; Issue #41 defines fail-closed storage boundaries | Keychain accessibility, Secure Enclave use, locked-device behavior, backup/reinstall and crash recovery | Real adapter design and physical validation |
+| TLS authentication and peer binding | TLS 1.3 and scoped certificate verification succeeded experimentally; exporter equality was observed on the tested physical pair | Exact peer certificate/public-key binding and relationship to long-term identity; TLS resumption and early-data policy | Protocol specification and negative tests |
+| Channel binding | Public metadata APIs produced matching same-session values in the experiment | Fixed domain, label, context, length, session lifecycle, and failure semantics | Canonical fixtures and review of channel-substitution/UKS resistance |
+| Canonical transcript | Existing proposal includes roles, identities, nonces, QR data and TLS binding | Versioned deterministic encoding, field ordering, duplicate/unknown-field policy and signature inputs | Approved schema and vectors |
+| QR bootstrap | QR is an out-of-band bootstrap, not authentication by itself | Payload, expiry, nonce/session ID, one-time use, origin display and cancellation | Threat review and replay tests |
+| Freshness and replay | Requirements demand freshness and replay resistance | Nonce/session construction, duplicate handling, retransmission and timeout rules | Negative vectors and state-machine review |
+| SAS and confirmation | Two-sided human confirmation is required; relay limitations remain explicit | SAS derivation, display encoding, comparison rules, user rejection and final authenticated confirmation | Independent review and physical UX tests |
+| Threats | Requirements cover MITM, UKS, downgrade, role confusion and relay limits | Exact proof obligations and residual relay assumptions | Adversarial review |
+| Trust lifecycle | Pending, committed, revoked and recovery states are required | Atomic commit protocol, interrupted pairing, replacement, revocation and lost-device recovery | Keychain/crash tests and acceptance decision |
+| Test vectors | None are accepted yet | Positive, wrong-role, wrong-peer, changed-QR, replay, truncation, mismatch and recovery fixtures | Deterministic vector set reviewed independently |
+| Independent review | Self-review is insufficient | Reviewer and review scope for construction, transcript and platform assumptions | Explicit review record and maintainer approval |
+
+The working research sequence is: (1) freeze the requirements and threat model; (2) compare exact identity and channel-binding alternatives; (3) specify one transcript candidate with negative vectors; (4) validate Apple API and storage assumptions; (5) obtain independent cryptographic review; and only then (6) authorize production pairing implementation. ADR 0003 remains Proposed throughout this sequence.
+
 ## Evidence classification
 
 | Claim | Classification |
@@ -185,6 +206,8 @@ After that correction, the maintainer reported two consecutive physical iPhone c
 The available logs do not establish why six connection-level sessions corresponded to two user-level attempts. The opaque session IDs distinguish accepted connections, but there is no cross-device attempt correlation yet. The remaining uncertainty should be resolved by one controlled run that records iOS attempt-generation values together with Mac session IDs; no speculative transport redesign is warranted from the current evidence.
 
 Source inspection confirms that each iOS Start action creates a fresh `NWConnection` and increments a local attempt generation, while the Mac assigns a separate opaque ID when its listener accepts a connection. The IDs are not shared and must not be presented as cross-device correlation. The current evidence cannot distinguish endpoint resolution, path selection, retries, callbacks from earlier attempts, or an implementation defect. A shared diagnostic attempt ID could be introduced only inside the already verified experimental channel, but it is not required to establish TLS feasibility and would change the experiment message semantics. The next useful observation is therefore a controlled two-attempt run with both local logs captured side by side.
+
+The subsequent controlled Test F.2 supplied that observation: exactly two iOS attempt generations and exactly two independently accepted Mac sessions were reported. Both sessions reached TLS ready, passed scoped certificate verification, retrieved metadata, completed local exporter-response and diagnostic-response sends, and entered cancellation. The iPhone logs did not include final diagnostic-completion UI statuses for those attempts. This is successful sequential TLS connection evidence on the tested physical pair, with chronological rather than authenticated cross-device correlation. The earlier six-session anomaly remains documented as unreproduced and unexplained.
 
 ## Candidate transcript format
 
