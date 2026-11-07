@@ -7,27 +7,26 @@ Status: Proposed planning document. The capabilities below are planned, not impl
 Stages 0 and 1 remain complete. Stage 2 remains in progress and retains its pairing, identity, trust, revocation, recovery, and independent-review gates. The expanded MVP adds an authorization/privacy planning dependency; it does not replace Candidate A research or alter ADR 0003.
 
 ```text
-Issue #52 + #53 + Stage 2 security review
-                 |
-                 v
-Expanded authorization/privacy addendum review
-                 |
-        isolated feasibility spikes
-          /        |        |       \
-         v         v        v        v
-      audio/media network  battery  input/clipboard
-          \        |        |       /
-           v       v        v      v
-              Stage 3 Core Dock
-                       |
-              Stage 4 Control Center
-                       |
-           Stage 5 Interaction & Clipboard
-                       |
-                 Stage 6 Hardening
-                       |
-                 Stage 7 Release
+Stage 2 security work (in progress) -----------+
+                                              |
+Authorization/privacy review ------------------+----> production gate
+                                              |
+Non-authorizing feasibility spikes ------------+
+  audio/media | network | battery | input/clipboard
+                                              |
+                                              v
+                                  Stage 3 Core Dock
+                                              |
+                                  Stage 4 Control Center
+                                              |
+                              Stage 5 Interaction & Clipboard
+                                              |
+                                        Stage 6 Hardening
+                                              |
+                                        Stage 7 Release
 ```
+
+The feasibility spikes may start while Stage 2 work continues. They do not depend on Issue #52 or pairing approval, do not expose production endpoints, and do not grant authorization. Production handlers remain blocked until the applicable Stage 2 security/authorization gate and the relevant feasibility evidence both pass.
 
 ## Proposed workstreams and Issues
 

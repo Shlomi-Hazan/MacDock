@@ -1,7 +1,7 @@
 # Stage 2 — Connection and Pairing Implementation Plan
 
 - Milestone: [Stage 2 — Connection & Pairing](https://github.com/Shlomi-Hazan/MacDock/milestone/3)
-- Status: Planned; no production Stage 2 capability is enabled
+- Status: In progress; no production Stage 2 capability is enabled
 - Security baseline: [ADR 0007](../decisions/0007-stage-0-feasibility-decision.md), [ADR 0008](../decisions/0008-stage-1-integration-and-stage-2-readiness.md)
 
 ## Scope and boundary
@@ -27,9 +27,21 @@ Issues #38–#45 ── Issue #46  Stage 2 integration review
 
 Issue #39 may prototype untrusted discovery after the security boundary is understood. Issue #40 may implement non-authorizing transport seams. Issues #42–#45 must not create trusted sessions or control endpoints until the preceding security decisions are reviewed.
 
+## Current tracking state
+
+As of this review, Issues #38–#41 are closed. Issues #42–#46, #52, and #53 remain open. This reflects the current GitHub state; no open work is treated as complete by this plan.
+
+| Issues | Current state |
+| --- | --- |
+| #38–#41 | Closed; their reviewed deliverables remain historical evidence for the current Stage 2 work |
+| #42–#46 | Open; pairing, authenticated sessions, recovery, reconnection, and Stage 2 acceptance remain incomplete |
+| #52–#53 | Open; construction review and platform identity/secure-storage dependencies remain incomplete |
+
 ## Workstreams
 
-| Issue | Workstream | Initial status | Gate |
+The status column below records the initial planning state and is retained for historical traceability; it is not the current GitHub state.
+
+| Issue | Workstream | Historical initial status | Gate |
 | --- | --- | --- | --- |
 | [#38](https://github.com/Shlomi-Hazan/MacDock/issues/38) | Pairing security specification and trust gates | Ready | First security review; ADR 0003 remains Proposed |
 | [#39](https://github.com/Shlomi-Hazan/MacDock/issues/39) | Production Bonjour candidate discovery | Backlog | Visibility only; no identity or trust |
