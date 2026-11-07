@@ -3,6 +3,7 @@
 - Issue: [#52](https://github.com/Shlomi-Hazan/MacDock/issues/52)
 - Stage: Stage 2 — Connection & Pairing
 - Status: Draft security design; candidate comparison complete, no construction selected or approved
+- Formal specification: [Candidate A Cryptographic Construction Specification v0.1](0017-candidate-a-cryptographic-construction-specification-v0.1.md)
 - Related: [Issue #38](https://github.com/Shlomi-Hazan/MacDock/issues/38), [Issue #41](https://github.com/Shlomi-Hazan/MacDock/issues/41), [ADR 0003](../decisions/0003-qr-first-pairing-and-peer-authentication.md), [ADR 0005](../decisions/0005-network-transport-and-protocol-boundary.md)
 
 ## Executive decision
