@@ -224,6 +224,10 @@ The following results are maintainer-reported physical-device observations from 
 | Wrong hostname | PASS; iOS verification error `-67602`; Mac error `-9825` |
 | Expired server leaf signed by a valid temporary CA | PASS; iOS verification error `-67818`; Mac error `-9825` |
 | Certificate-rejection UI reporting | PASS; final status `Failed: certificate verification rejected`, Start enabled, Cancel disabled |
+| Test D.1 cancellation during preparing | PASS for the observed physical scenario; peer reset was observed and no success was reported |
+| Test D.2 cancellation after TLS ready | PASS for the iOS terminal state and late-success suppression; server-side cancellation propagation remains unproven |
+| Test E unexpected server-process closure | Limited PASS; bounded client timeout, no false success, and UI recovery; explicit transport-close cleanup remains unverified |
+| Test F two consecutive connections | PASS; two independent physical diagnostic exchanges completed; additional connection-level failures require classification |
 
 All three negative trust cases reached explicit iOS verification failure and produced no TLS-ready or exporter-success state. This is evidence of certificate validation behavior, not device authentication, pairing, authorization, or cryptographic construction approval.
 
@@ -472,6 +476,10 @@ The maintainer executed Test F with a valid certificate and `--duration 180`. At
 
 Source inspection established the immediate lifecycle defect: `runListener` waited on a semaphore that every completed `ListenerSession` signalled, then cancelled the listener after the first diagnostic exchange. Therefore the documented `--duration` was not the listener lifetime; it was effectively capped by the first session. The listener now remains active for the requested duration, tracks each accepted connection in an opaque per-session registry, cleans sessions independently, and logs session-scoped state transitions. This is an experiment-only fix; it does not change TLS, trust, pairing, or authorization.
 
+After that correction, the maintainer repeated Test F on a physical iPhone 14 Pro Max and Mac without restarting either application. Both explicit iPhone attempts reached `Diagnostic exchange complete (unverified)`. The Mac reported six accepted connection-level sessions: sessions 2 and 6 reached TLS ready and completed local diagnostic sends; session 1 timed out, session 3 was refused, and sessions 4 and 5 reported `-9816: server closed session with no notification` before cancellation. This is **PASS for two independent physical Mac–iPhone diagnostic exchanges within one listener lifetime**. The successful local sends do not prove remote application-level receipt, TLS resumption, pairing, durable trust, or authorization.
+
+The six-session output cannot currently be mapped conclusively to the two user-level Start actions. The logs now distinguish opaque listener session IDs, but they do not yet correlate those IDs with a client attempt ID or establish whether the extra sessions were retries, path-establishment behavior, prior attempts, or timing artifacts. No further speculative lifecycle change is justified; a future discriminating run should capture the iOS attempt-generation logs alongside the Mac session IDs.
+
 Use the existing fixture under `/private/tmp/macdock-tls-expired.0WtQhP/` only while it remains available and valid. Its valid server certificate is expected to expire on November 14, 2026. Verify the dates before use, then start:
 
 ```sh
@@ -513,7 +521,7 @@ The future design must still address wrong-peer verification, channel substituti
 
 The following remain required before Candidate A can be treated as ready for formal construction approval:
 
-- Physical reconnection and broader unexpected-closure cleanup tests.
+- Broader unexpected-closure cleanup semantics and correlation of connection-level sessions with user-level attempts.
 - Runtime validation on the provisional macOS 14 and iOS 17 minimum versions; the successful run used a newer environment and does not establish minimum-OS compatibility.
 - Independent cryptographic review of the exact identity, transcript, channel-binding, SAS, and trust-commit construction.
 
